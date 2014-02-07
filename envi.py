@@ -1,6 +1,6 @@
 import bottle
 from abc import ABCMeta, abstractmethod
-from pipes import PipeFactory
+from pipes import PipeFactory, StaticPipe, AjaxPipe, PjaxPipe, JsonRpcPipe
 
 
 class Application(bottle.Bottle):
@@ -11,63 +11,24 @@ class Application(bottle.Bottle):
         """
 
     @staticmethod
-    def static_converter(cb):
-        """
-            Конвертор ответа статических страниц
-        """
-        # noinspection PyBroadException
-        try:
-            return cb()
-        except:
-            return ""
+    def set_user_initialization_hook(cb):
+        Application.user_initialization_hook = cb
 
     @staticmethod
-    def ajax_converter(cb):
-        """
-            Конвертор ajax ответа
-        """
-        # noinspection PyBroadException
-        try:
-            return cb()
-        except:
-            return ""
+    def set_static_pipe_output_converter(cb):
+        StaticPipe.converter = cb
 
     @staticmethod
-    def pjax_converter(cb):
-        """
-            Конвертор pjax ответа
-        """
-        # noinspection PyBroadException
-        try:
-            return cb()
-        except:
-            return ""
+    def set_ajax_pipe_output_converter(cb):
+        AjaxPipe.converter = cb
 
     @staticmethod
-    def jsonrpc_converter(cb):
-        """
-            Конвертор jsonrpc ответа
-        """
-        # noinspection PyBroadException
-        try:
-            return cb()
-        except:
-            return ""
+    def set_pjax_pipe_output_converter(cb):
+        PjaxPipe.converter = cb
 
-    def set_user_initialization_hook(self, cb):
-        self.__class__.user_initialization_hook = cb
-
-    def set_static_pipe_output_converter(self, cb):
-        self.__class__.static_converter = cb
-
-    def set_ajax_pipe_output_converter(self, cb):
-        self.__class__.ajax_converter = cb
-
-    def set_pjax_pipe_output_converter(self, cb):
-        self.__class__.pjax_converter = cb
-
-    def set_jsonrpc_pipe_output_converter(self, cb):
-        self.__class__.jsonrpc_converter = cb
+    @staticmethod
+    def set_jsonrpc_pipe_output_converter(cb):
+        JsonRpcPipe.converter = cb
 
     # noinspection PyMethodOverriding
     def route(self, path, controller):
@@ -75,7 +36,7 @@ class Application(bottle.Bottle):
 
         def wrapper(*args, **kwargs):
             request = bottle.request
-            user = app.user_initialization_hook()
+            user = Application.user_initialization_hook()
             host = None
 
             pipe = PipeFactory.get_pipe(request)

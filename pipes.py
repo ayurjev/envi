@@ -3,29 +3,35 @@ from abc import ABCMeta, abstractmethod
 
 
 class RequestPipe(metaclass=ABCMeta):
-    @abstractmethod
     def process(self, controller, app: Application, request, user, host):
-        """ """
+        return self.__class__.converter(lambda: controller.process(app, request, user, host))
+
+    @staticmethod
+    def converter(cb):
+        """
+            Конвертор
+        """
+        # noinspection PyBroadException
+        try:
+            return cb()
+        except:
+            return ""
 
 
 class StaticPipe(RequestPipe):
-    def process(self, controller, app: Application, request, user, host):
-        return app.static_converter(lambda: controller.process(app, request, user, host))
+    pass
 
 
 class AjaxPipe(RequestPipe):
-    def process(self, controller, app: Application, request, user, host):
-        return app.ajax_converter(lambda: controller.process(app, request, user, host))
+    pass
 
 
 class PjaxPipe(RequestPipe):
-    def process(self, controller, app: Application, request, user, host):
-        return app.pjax_converter(lambda: controller.process(app, request, user, host))
+    pass
 
 
 class JsonRpcPipe(RequestPipe):
-    def process(self, controller, app: Application, request, user, host):
-        return app.jsonrpc_converter(lambda: controller.process(app, request, user, host))
+    pass
 
 
 class PipeFactory(object):
