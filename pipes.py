@@ -1,29 +1,31 @@
-class RequestPipe(object):
-    def process(self, controller, app, request, user, host):
-        return controller.process(app, request, user, host)
+from envi import Application
+from abc import ABCMeta, abstractmethod
 
 
-class AjaxPipe(RequestPipe):
-    def process(self, controller, app, request, user, host):
-        return controller.process(app, request, user, host)
-
-
-class PjaxPipe(RequestPipe):
-    def process(self, controller, app, request, user, host):
-        return controller.process(app, request, user, host)
+class RequestPipe(metaclass=ABCMeta):
+    @abstractmethod
+    def process(self, controller, app: Application, request, user, host):
+        """ """
 
 
 class StaticPipe(RequestPipe):
-    def process(self, controller, app, request, user, host):
+    def process(self, controller, app: Application, request, user, host):
         return app.static_converter(lambda: controller.process(app, request, user, host))
 
 
+class AjaxPipe(RequestPipe):
+    def process(self, controller, app: Application, request, user, host):
+        return app.ajax_converter(lambda: controller.process(app, request, user, host))
+
+
+class PjaxPipe(RequestPipe):
+    def process(self, controller, app: Application, request, user, host):
+        return app.pjax_converter(lambda: controller.process(app, request, user, host))
+
+
 class JsonRpcPipe(RequestPipe):
-    def process(self, controller, app, request, user, host):
-        try:
-            return controller.process(app, request, user, host)
-        except:
-            return ""
+    def process(self, controller, app: Application, request, user, host):
+        return app.jsonrpc_converter(lambda: controller.process(app, request, user, host))
 
 
 class PipeFactory(object):
