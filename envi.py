@@ -1,6 +1,5 @@
 import bottle
 from abc import ABCMeta, abstractmethod
-from pipes import PipeFactory, StaticPipe, AjaxPipe, PjaxPipe, JsonRpcPipe
 
 
 class Application(bottle.Bottle):
@@ -36,13 +35,61 @@ class Application(bottle.Bottle):
 
         def wrapper(*args, **kwargs):
             request = bottle.request
+
+
             user = Application.user_initialization_hook()
             host = None
 
             pipe = PipeFactory.get_pipe(request)
+
             return pipe.process(controller(), app, request, user, host)
 
-        super().route(path, ["GET", "POST"], wrapper)
+        super().route(path.rstrip("/"), ["GET", "POST"], wrapper)
+
+    def __call__(self, e, h):
+        e['PATH_INFO'] = e['PATH_INFO'].rstrip('/')
+        return super().__call__(e, h)
+
+def testf():
+    return "123"
+
+
+class RequestPipe(metaclass=ABCMeta):
+    def process(self, controller, app: Application, request, user, host):
+        return self.__class__.converter(lambda: controller.process(app, request, user, host))
+
+    @staticmethod
+    def converter(cb):
+        """
+            Конвертор
+        """
+        # noinspection PyBroadException
+        try:
+            return cb()
+        except:
+            return ""
+
+
+class StaticPipe(RequestPipe):
+    pass
+
+
+class AjaxPipe(RequestPipe):
+    pass
+
+
+class PjaxPipe(RequestPipe):
+    pass
+
+
+class JsonRpcPipe(RequestPipe):
+    pass
+
+
+class PipeFactory(object):
+    @staticmethod
+    def get_pipe(request):
+        return AjaxPipe()
 
 
 class Controller(metaclass=ABCMeta):
@@ -51,7 +98,7 @@ class Controller(metaclass=ABCMeta):
 
     @staticmethod
     def not_implemented():
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def process(self, app, request, user, host):
 
@@ -61,7 +108,7 @@ class Controller(metaclass=ABCMeta):
                 app, request, user, host, domain_data
             )
         except AttributeError:
-            raise NotImplemented()
+            raise NotImplementedError()
 
     @abstractmethod
     def setup(self, app, request, user, host):

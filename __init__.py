@@ -1,1 +1,1 @@
-from envi.envi import Application, Controller
+from envi import Application, Controller
