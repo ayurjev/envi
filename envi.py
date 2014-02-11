@@ -34,7 +34,7 @@ class Application(bottle.Bottle):
         app = self
 
         def wrapper(*args, **kwargs):
-            request = bottle.request
+            request = Request(bottle.request)
 
 
             user = Application.user_initialization_hook()
@@ -50,8 +50,47 @@ class Application(bottle.Bottle):
         e['PATH_INFO'] = e['PATH_INFO'].rstrip('/')
         return super().__call__(e, h)
 
-def testf():
-    return "123"
+
+class Request(object):
+    class RequiredArgumentIsMissing(Exception):
+        """ Исключение, возникающие если не предоставлен какой-либо из требуемых приложением параметров запроса """
+        pass
+
+    def __init__(self, *args):
+        self._request = {}
+
+        for data in args:
+            self.update(data)
+
+    def get(self, key, default=None):
+        """
+        Возвращает значение параметра запроса по его имени
+        @param key: Требуемый параметр
+        @param default: Значение, используемое поумолчанию, если значения для key не предоставлено
+        """
+        if key in self._request.keys():
+            return self._request.get(key)
+        elif default is not None:
+            return default
+        else:
+            raise Request.RequiredArgumentIsMissing("required argument '%s' is missing in your query" % key)
+
+    def set(self, key, value):
+        """
+        Устанавливает значение параметра запроса по его имени
+        @param key: Имя добавляемого параметра
+        @param value: Значение добавляемого параметра
+        """
+        self._request.update({key: value})
+
+    def update(self, other: dict):
+        """
+        Обновляет запрос данными из словаря
+        """
+        if isinstance(other, dict):
+            self._request.update(other)
+        else:
+            raise TypeError("request cannot be updated by value of class %s" % other.__class__.__name__)
 
 
 class RequestPipe(metaclass=ABCMeta):
@@ -100,8 +139,7 @@ class Controller(metaclass=ABCMeta):
     def not_implemented():
         raise NotImplementedError()
 
-    def process(self, app, request, user, host):
-
+    def process(self, app: Application, request, user, host):
         domain_data = self.setup(app, request, user, host)
         try:
             return self.__getattribute__(request.get("action", self.__class__.default_action))(
