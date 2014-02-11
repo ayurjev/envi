@@ -28,15 +28,13 @@ class RequestTestController(Controller):
         pass
 
     @staticmethod
-    def request_get(app, request, user, host, data):
-        return request.get('get')
+    def get_arg(app, request, user, host, data):
+        return request.get('arg')
 
     @staticmethod
-    def request_post(app, request, user, host, data):
-        return request.get('post')
-
-    @staticmethod
-    def request_files(app, request, user, host, data):
-        return request.get('files')
+    def get_file(app, request, user, host, data):
+        request.get('arg').save("/tmp/test.txt", True)
+        with open('/tmp/test.txt') as f:
+            return f.readlines()
 
 

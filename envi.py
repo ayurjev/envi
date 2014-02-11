@@ -34,12 +34,11 @@ class Application(bottle.Bottle):
         app = self
 
         def wrapper(*args, **kwargs):
-            print(kwargs)
             # request = Request(
             #     kwargs,
             #     # {url_data[urlkey].encode("iso-8859-1").decode("utf-8") for }
             # )
-            request = Request(kwargs)
+            request = Request(kwargs, dict(bottle.request.GET.decode()), dict(bottle.request.POST.decode()))
 
 
             user = Application.user_initialization_hook()
