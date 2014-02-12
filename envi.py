@@ -29,14 +29,28 @@ class Application(bottle.Bottle):
     def set_jsonrpc_pipe_output_converter(cb):
         JsonRpcPipe.converter = cb
 
+    @staticmethod
+    def _host():
+        """ Предоставляет информацию о параметрах запроса """
+        return {
+            "ip": bottle.request.environ.get("REMOTE_ADDR"),
+            "port": bottle.request.environ.get("SERVER_PORT"),
+            "browser": bottle.request.environ.get("HTTP_USER_AGENT"),
+            "host": bottle.request.environ.get("HTTP_HOST"),
+            "content": {
+                "type": bottle.request.environ.get("CONTENT_TYPE"),
+                "length": bottle.request.environ.get("CONTENT_LENGTH"),
+            }
+        }
+
     # noinspection PyMethodOverriding
     def route(self, path, controller):
         app = self
 
-        def wrapper(**kwargs):
+        def wrapper(*args, **kwargs):
             request = Request(kwargs, dict(bottle.request.GET.decode()), dict(bottle.request.POST.decode()))
             user = Application.user_initialization_hook()
-            host = None
+            host = self._host()
             return PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
 
         super().route(path.rstrip("/"), ["GET", "POST"], wrapper)
