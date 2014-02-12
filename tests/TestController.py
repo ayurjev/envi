@@ -1,10 +1,9 @@
+from email._parseaddr import quote
 import unittest
-import bottle
 import envi
 from envi import Application
-from tests.Controllers import RequestTestController, TestController, UsersTestController
+from tests.Controllers import RequestController, BaseController, UsersController
 from io import BufferedReader, BytesIO
-import cgi
 
 class TestController(unittest.TestCase):
     def setUp(self):
@@ -31,10 +30,10 @@ class TestController(unittest.TestCase):
     #     class User(object):
     #         pass
     #     """ Проверяю что метод контроллера получает данные """
-    #     self.app.route("/", TestController)
+    #     self.app.route("/", BaseController)
     #
     #     app, request, user, host = self.app, bottle.request, None, None
-    #     domain_data = TestController().setup(app, request, user, host)
+    #     domain_data = BaseController().setup(app, request, user, host)
     #
     #     # Вызов роутера внутри bottle app
     #     self.assertEqual((app, request, user, host, domain_data), self.app.routes[-1].call())
@@ -49,29 +48,28 @@ class TestController(unittest.TestCase):
         """
             Проверка работы роутинга
         """
-        self.app.route("/users", UsersTestController)
-        self.app.route("/users/<action>", UsersTestController)
+        self.app.route("/users", UsersController)
+        self.app.route("/users/<action>", UsersController)
 
-        self.assertEqual([b"show users"], self.app({"REQUEST_METHOD": "GET", "PATH_INFO": "/users/show/", "wsgi.input": BufferedReader(BytesIO(b""))}, self.test_response))
-        self.assertEqual([b"show users"], self.app({"REQUEST_METHOD": "GET", "PATH_INFO": "/users/", "wsgi.input": BufferedReader(BytesIO(b""))}, self.test_response))
+        self.assertEqual([b"show users"], self.app({"REQUEST_METHOD": "GET", "PATH_INFO": "/users/show/", "wsgi.input": BufferedReader(BytesIO())}, self.test_response))
+        self.assertEqual([b"show users"], self.app({"REQUEST_METHOD": "GET", "PATH_INFO": "/users/", "wsgi.input": BufferedReader(BytesIO())}, self.test_response))
 
-        self.app.catchall = False
-        self.assertRaises(NotImplementedError, self.app, {"REQUEST_METHOD": "GET", "PATH_INFO": "/users/test/", "wsgi.input": BufferedReader(BytesIO(b""))}, self.test_response)
+        self.assertRaises(NotImplementedError, self.app, {"REQUEST_METHOD": "GET", "PATH_INFO": "/users/test/", "wsgi.input": BufferedReader(BytesIO())}, self.test_response)
 
     def test_request_get_arguments(self):
         """ Request содержит в себе GET параметры """
-        self.app.route("/<action>/", RequestTestController)
-        self.assertEqual([b"123"], self.app({"REQUEST_METHOD": "GET", "PATH_INFO": "/get_arg/", "QUERY_STRING": "arg=123", "wsgi.input": BufferedReader(BytesIO(b""))}, self.test_response))
+        self.app.route("/<action>/", RequestController)
+        self.assertEqual([b"123"], self.app({"REQUEST_METHOD": "GET", "PATH_INFO": "/get_arg/", "QUERY_STRING": "arg=123", "wsgi.input": BufferedReader(BytesIO())}, self.test_response))
 
     def test_request_post_arguments(self):
         """ Request содержит в себе POST параметры """
         body = b"arg=123"
-        self.app.route("/<action>/", RequestTestController)
+        self.app.route("/<action>/", RequestController)
         self.assertEqual([b"123"], self.app({"REQUEST_METHOD": "POST", "PATH_INFO": "/get_arg/", "CONTENT_LENGTH": len(body), "wsgi.input": BufferedReader(BytesIO(body))}, self.test_response))
 
     def test_request_files_arguments(self):
         """ Request содержит в себе FILES """
-        self.app.route("/<action>/", RequestTestController)
+        self.app.route("/<action>/", RequestController)
 
         body = b"-12345\r\nContent-Disposition: form-data; name=\"arg\"; filename=\"filename\"\r\nContent-Type: text/plain\r\n\r\nFILE CONTENT"
         self.assertEqual([b"FILE CONTENT"], self.app({
@@ -82,3 +80,11 @@ class TestController(unittest.TestCase):
             "wsgi.input": BufferedReader(BytesIO(body))
         }, self.test_response))
 
+    def test_multibyte_request_params(self):
+        """ Контроллер умеет принимать параметры в multi-byte кодировке """
+        self.app.route("/<action>/<arg>/", RequestController)
+        self.assertEqual(["параметр".encode()], self.app({
+            "REQUEST_METHOD": "GET",
+            "PATH_INFO": "/get_arg/параметр/".encode().decode("iso-8859-1"),
+            "wsgi.input": BufferedReader(BytesIO())
+        }, self.test_response))

@@ -33,20 +33,11 @@ class Application(bottle.Bottle):
     def route(self, path, controller):
         app = self
 
-        def wrapper(*args, **kwargs):
-            # request = Request(
-            #     kwargs,
-            #     # {url_data[urlkey].encode("iso-8859-1").decode("utf-8") for }
-            # )
+        def wrapper(**kwargs):
             request = Request(kwargs, dict(bottle.request.GET.decode()), dict(bottle.request.POST.decode()))
-
-
             user = Application.user_initialization_hook()
             host = None
-
-            pipe = PipeFactory.get_pipe(request)
-
-            return pipe.process(controller(), app, request, user, host)
+            return PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
 
         super().route(path.rstrip("/"), ["GET", "POST"], wrapper)
 

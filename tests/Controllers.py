@@ -1,6 +1,6 @@
 from envi import Controller
 
-class TestController(Controller):
+class BaseController(Controller):
     default_action = "index"
 
     def setup(self, app, request, user, host):
@@ -11,7 +11,7 @@ class TestController(Controller):
         return app, request, user, host, domain_data
 
 
-class UsersTestController(Controller):
+class UsersController(Controller):
     """ Пример контроллера действий над пользователями """
     default_action = "show"
 
@@ -23,7 +23,7 @@ class UsersTestController(Controller):
         return "show users"
 
 
-class RequestTestController(Controller):
+class RequestController(Controller):
     def setup(self, app, request, user, host):
         pass
 
