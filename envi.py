@@ -149,10 +149,10 @@ class Controller(metaclass=ABCMeta):
         raise NotImplementedError()
 
     def process(self, app: Application, request, user, host):
-        domain_data = self.setup(app, request, user, host)
+        domain_data = self.setup(app=app, request=request, user=user, host=host)
         try:
             return self.__getattribute__(request.get("action", self.__class__.default_action))(
-                app, request, user, host, domain_data
+                app=app, request=request, user=user, host=host, domain_data=domain_data
             )
         except AttributeError:
             raise NotImplementedError()
