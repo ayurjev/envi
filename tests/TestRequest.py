@@ -52,3 +52,26 @@ class TestRequest(unittest.TestCase):
 
         request.update({'prop': 4})
         self.assertEqual(4, request.get('prop'))
+
+    def test_ajax_type_detection(self):
+        """ Ajax запрос определяется по заголовку HTTP_X_REQUESTED_WITH """
+        request = envi.Request(environ={"HTTP_X_REQUESTED_WITH": "XMLHttpRequest"})
+        self.assertEqual(envi.Request.Types.AJAX, request.type())
+
+    def test_pjax_type_detection(self):
+        """ Pjax запрос определяется по двум заголовкам HTTP_X_REQUESTED_WITH и HTTP_X_PJAX """
+        request = envi.Request(environ={"HTTP_X_PJAX": True, "HTTP_X_REQUESTED_WITH": "XMLHttpRequest"})
+        self.assertEqual(envi.Request.Types.PJAX, request.type())
+
+    def test_json_rpc_type_detection(self):
+        """ JsonRPC запрос определяется по наличию аргумента q в запросе и только по нему одному """
+        request = envi.Request({"q": "{}"})
+        self.assertEqual(envi.Request.Types.JSON_RPC, request.type())
+
+        request = envi.Request({"q": "{}"}, environ={"HTTP_X_REQUESTED_WITH": "XMLHttpRequest"})
+        self.assertEqual(envi.Request.Types.JSON_RPC, request.type())
+
+    def test_static_type_detection(self):
+        """ Любой запрос не являющийся Ajax, Pjax, Json_RPC является STATIC """
+        request = envi.Request()
+        self.assertEqual(envi.Request.Types.STATIC, request.type())

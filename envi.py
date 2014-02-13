@@ -35,12 +35,7 @@ class Application(bottle.Bottle):
         return {
             "ip": bottle.request.environ.get("REMOTE_ADDR"),
             "port": bottle.request.environ.get("SERVER_PORT"),
-            "browser": bottle.request.environ.get("HTTP_USER_AGENT"),
-            "host": bottle.request.environ.get("HTTP_HOST"),
-            "content": {
-                "type": bottle.request.environ.get("CONTENT_TYPE"),
-                "length": bottle.request.environ.get("CONTENT_LENGTH"),
-            }
+            "user_agent": bottle.request.environ.get("HTTP_USER_AGENT"),
         }
 
     # noinspection PyMethodOverriding
@@ -48,7 +43,7 @@ class Application(bottle.Bottle):
         app = self
 
         def wrapper(*args, **kwargs):
-            request = Request(kwargs, dict(bottle.request.GET.decode()), dict(bottle.request.POST.decode()))
+            request = Request(kwargs, dict(bottle.request.GET.decode()), dict(bottle.request.POST.decode()), environ=dict(bottle.request.environ))
             user = Application.user_initialization_hook()
             host = self._host()
             return PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
@@ -65,8 +60,16 @@ class Request(object):
         """ Исключение, возникающие если не предоставлен какой-либо из требуемых приложением параметров запроса """
         pass
 
-    def __init__(self, *args):
+    class Types(object):
+        """ Типы запросов """
+        STATIC = 0
+        AJAX = 1
+        PJAX = 2
+        JSON_RPC = 3
+
+    def __init__(self, *args, **kwargs):
         self._request = {}
+        self.environ = kwargs.get("environ", {})
 
         for data in args:
             self.update(data)
@@ -101,6 +104,19 @@ class Request(object):
         else:
             raise TypeError("request cannot be updated by value of class %s" % other.__class__.__name__)
 
+    def type(self):
+        """
+        Определяет тип запроса
+        """
+        if self.get("q", False):
+            return self.Types.JSON_RPC
+        elif self.environ.get("HTTP_X_REQUESTED_WITH", "").lower() == 'xmlhttprequest':
+            if self.environ.get("HTTP_X_PJAX") is not None:
+                return self.Types.PJAX
+            else:
+                return self.Types.AJAX
+        else:
+            return self.Types.STATIC
 
 class RequestPipe(metaclass=ABCMeta):
     def process(self, controller, app: Application, request, user, host):
@@ -136,8 +152,15 @@ class JsonRpcPipe(RequestPipe):
 
 class PipeFactory(object):
     @staticmethod
-    def get_pipe(request):
-        return AjaxPipe()
+    def get_pipe(request: Request):
+        if request.type() == Request.Types.PJAX:
+            return PjaxPipe()
+        elif request.type() == Request.Types.AJAX:
+            return AjaxPipe()
+        elif request.type() == Request.Types.JSON_RPC:
+            return JsonRpcPipe()
+        else:
+            return StaticPipe()
 
 
 class Controller(metaclass=ABCMeta):

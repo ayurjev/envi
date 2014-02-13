@@ -8,7 +8,7 @@ class TestController(unittest.TestCase):
         self.app = Application()
         self.app.catchall = False
         self.test_response = lambda response_code, content_type: None
-        self.app.set_ajax_pipe_output_converter(lambda cb: cb())
+        self.app.set_static_pipe_output_converter(lambda cb: cb())
 
     def test_set_converter(self):
         """ Проверяю что установленный конвертор работает """
