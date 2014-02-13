@@ -111,7 +111,7 @@ class Request(object):
         if self.get("q", False):
             return self.Types.JSON_RPC
         elif self.environ.get("HTTP_X_REQUESTED_WITH", "").lower() == 'xmlhttprequest':
-            if self.environ.get("HTTP_X_PJAX") is not None:
+            if self.environ.get("HTTP_X_PJAX"):
                 return self.Types.PJAX
             else:
                 return self.Types.AJAX
