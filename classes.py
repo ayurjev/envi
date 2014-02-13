@@ -118,6 +118,7 @@ class Request(object):
         else:
             return self.Types.STATIC
 
+
 class RequestPipe(metaclass=ABCMeta):
     def process(self, controller, app: Application, request, user, host):
         return self.__class__.converter(lambda: controller.process(app, request, user, host))
@@ -147,7 +148,16 @@ class PjaxPipe(RequestPipe):
 
 
 class JsonRpcPipe(RequestPipe):
-    pass
+    @staticmethod
+    def converter(cb):
+        """ Конвертор ответа на JSON_RPC запрос """
+        # noinspection PyBroadException
+        try:
+            return cb()
+        except Request.RequiredArgumentIsMissing:
+            pass
+        except:
+            return ""
 
 
 class PipeFactory(object):
@@ -183,4 +193,3 @@ class Controller(metaclass=ABCMeta):
     @abstractmethod
     def setup(self, app, request, user, host):
         """ """
-
