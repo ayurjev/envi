@@ -1,6 +1,6 @@
 import bottle
+import simplejson
 from abc import ABCMeta, abstractmethod
-
 
 class Application(bottle.Bottle):
     @staticmethod
@@ -53,6 +53,28 @@ class Application(bottle.Bottle):
     def __call__(self, e, h):
         e['PATH_INFO'] = e['PATH_INFO'].rstrip('/')
         return super().__call__(e, h)
+
+
+class Controller(metaclass=ABCMeta):
+
+    default_action = "not_implemented"
+
+    @staticmethod
+    def not_implemented():
+        raise NotImplementedError()
+
+    def process(self, app: Application, request, user, host):
+        domain_data = self.setup(app=app, request=request, user=user, host=host)
+        try:
+            return self.__getattribute__(request.get("action", self.__class__.default_action))(
+                app=app, request=request, user=user, host=host, domain_data=domain_data
+            )
+        except AttributeError:
+            raise NotImplementedError()
+
+    @abstractmethod
+    def setup(self, app, request, user, host):
+        """ """
 
 
 class Request(object):
@@ -148,16 +170,168 @@ class PjaxPipe(RequestPipe):
 
 
 class JsonRpcPipe(RequestPipe):
+    def process(self, controller: Controller, app: Application, request, user, host):
+        """ Принимает JSON_RPC запрос, парсит, передаёт обработку в _response """
+
+        def wrapper(*args, action):
+            request.set('action', action)
+            request.set('params', args)
+            return controller.process(app, request, user, host)
+
+        try:
+            json = simplejson.loads(request.get("q"))
+
+            if not isinstance(json, (dict, list)) or len(json) == 0:
+                response = self.__class__.invalid_request
+            elif isinstance(json, dict):
+                response = lambda: self.__class__._response(json, wrapper(*json.get('params'), action=json.get('method')))
+            else:
+                response = lambda: list(filter(None, [self.__class__._response(j, wrapper(*j.get('params'), action=j.get('method'))) for j in json]))
+
+        except simplejson.JSONDecodeError:
+            response = self.__class__.parse_error
+
+        return self.__class__.converter(response)
+
     @staticmethod
     def converter(cb):
         """ Конвертор ответа на JSON_RPC запрос """
         # noinspection PyBroadException
         try:
-            return cb()
-        except Request.RequiredArgumentIsMissing:
-            pass
+            result = cb()
+            if result is not None:
+                return simplejson.dumps()
+            else:
+                return ''
         except:
-            return ""
+            return ''
+
+    class ServerError(Exception):
+        def __init__(self, code):
+            self.code = code
+
+    @staticmethod
+    def parse_error():
+        """
+        Invalid JSON was received by the server
+        An error occurred on the server while parsing the JSON text
+        """
+        return {
+            'jsonrpc': '2.0',
+            'error': {
+                'code': -32700,
+                'message': 'Parse error'
+            },
+            'id': None
+        }
+
+    @staticmethod
+    def invalid_request(id=None):
+        """ The JSON sent is not a valid Request object """
+        return {
+            'jsonrpc': '2.0',
+            'error': {
+                'code': -32600,
+                'message': 'Invalid Request'
+            },
+            'id': id
+        }
+
+    @staticmethod
+    def method_not_found(id=None):
+        """ The method does not exist / is not available """
+        return {
+            'jsonrpc': '2.0',
+            'error': {
+                'code': -32601,
+                'message': 'Method not found'
+            },
+            'id': id
+        }
+
+    @staticmethod
+    def invalid_params(id=None):
+        """ Invalid method parameter(s) """
+        return {
+            'jsonrpc': '2.0',
+            'error': {
+                'code': -32602,
+                'message': 'Invalid params'
+            },
+            'id': id
+        }
+
+    @staticmethod
+    def internal_error(id=None):
+        """ Internal JSON-RPC error """
+        return {
+            'jsonrpc': '2.0',
+            'error': {
+                'code': -32603,
+                'message': 'Internal error'
+            },
+            'id': id
+        }
+
+    @staticmethod
+    def server_error(code, id):
+        """
+        Internal JSON-RPC error
+        code MUST BE in range from 0 to 99
+        """
+        return {
+            'jsonrpc': '2.0',
+            'error': {
+                'code': -32000 - code,
+                'message': 'Server error'
+            },
+            'id': id
+        }
+
+    @staticmethod
+    def success(result, id):
+        return {
+            'jsonrpc': '2.0',
+            'result': result,
+            'id': id
+        }
+
+    @classmethod
+    def response(cls, json, cb):
+        """ Принимает JSON_RPC запрос, парсит, передаёт обработку в _response """
+        try:
+            json = simplejson.loads(json)
+        except simplejson.JSONDecodeError:
+            return simplejson.dumps(cls.parse_error())
+
+        if not isinstance(json, (dict, list)) or len(json) == 0:
+            return simplejson.dumps(cls.invalid_request())
+
+        if isinstance(json, dict):
+            response = cls._response(json, cb)
+        else:
+            response = list(filter(None, [cls._response(j, cb) for j in json]))
+
+        if response:
+            return simplejson.dumps(response)
+        else:
+            return ''
+
+    @classmethod
+    def _response(cls, json, cb):
+        """ Отвечает на один RPC запрос """
+        if len(json) == 0:
+            return cls.invalid_request()
+
+        id = json.get('id')
+        try:
+            result = cls.success(cb(*json.get("params"), action=json.get("method")), id)
+            if id is not None:
+                return result
+        except cls.ServerError as error:
+            return cls.server_error(error.code, id)
+        except Request.RequiredArgumentIsMissing:
+            return cls.invalid_params(id)
 
 
 class PipeFactory(object):
@@ -173,23 +347,3 @@ class PipeFactory(object):
             return StaticPipe()
 
 
-class Controller(metaclass=ABCMeta):
-
-    default_action = "not_implemented"
-
-    @staticmethod
-    def not_implemented():
-        raise NotImplementedError()
-
-    def process(self, app: Application, request, user, host):
-        domain_data = self.setup(app=app, request=request, user=user, host=host)
-        try:
-            return self.__getattribute__(request.get("action", self.__class__.default_action))(
-                app=app, request=request, user=user, host=host, domain_data=domain_data
-            )
-        except AttributeError:
-            raise NotImplementedError()
-
-    @abstractmethod
-    def setup(self, app, request, user, host):
-        """ """
