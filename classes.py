@@ -173,37 +173,36 @@ class JsonRpcPipe(RequestPipe):
     def process(self, controller: Controller, app: Application, request, user, host):
         """ Принимает JSON_RPC запрос, парсит, передаёт обработку в _response """
 
-        def wrapper(*args, action):
-            request.set('action', action)
-            request.set('params', args)
+        def wrapper(method, params):
+            if isinstance(params, dict):
+                request.update(params)
+
+            request.set('params', params)
+            request.set('action', method)
             return controller.process(app, request, user, host)
 
+        # noinspection PyBroadException
         try:
             json = simplejson.loads(request.get("q"))
-
             if not isinstance(json, (dict, list)) or len(json) == 0:
-                response = self.__class__.invalid_request
+                response = JsonRpcPipe.invalid_request
             elif isinstance(json, dict):
-                response = lambda: self.__class__._response(json, wrapper(*json.get('params'), action=json.get('method')))
+                response = lambda: JsonRpcPipe.response(json, wrapper)
             else:
-                response = lambda: list(filter(None, [self.__class__._response(j, wrapper(*j.get('params'), action=j.get('method'))) for j in json]))
-
+                response = lambda: list(filter(None, [JsonRpcPipe.response(j, wrapper) for j in json]))
         except simplejson.JSONDecodeError:
-            response = self.__class__.parse_error
+            response = JsonRpcPipe.parse_error
+        except:
+            response = lambda: ''
 
-        return self.__class__.converter(response)
+        return JsonRpcPipe.converter(response)
 
     @staticmethod
     def converter(cb):
-        """ Конвертор ответа на JSON_RPC запрос """
-        # noinspection PyBroadException
-        try:
-            result = cb()
-            if result is not None:
-                return simplejson.dumps()
-            else:
-                return ''
-        except:
+        result = cb()
+        if result:
+            return simplejson.dumps(result)
+        else:
             return ''
 
     class ServerError(Exception):
@@ -296,42 +295,46 @@ class JsonRpcPipe(RequestPipe):
             'id': id
         }
 
-    @classmethod
-    def response(cls, json, cb):
-        """ Принимает JSON_RPC запрос, парсит, передаёт обработку в _response """
-        try:
-            json = simplejson.loads(json)
-        except simplejson.JSONDecodeError:
-            return simplejson.dumps(cls.parse_error())
-
-        if not isinstance(json, (dict, list)) or len(json) == 0:
-            return simplejson.dumps(cls.invalid_request())
-
-        if isinstance(json, dict):
-            response = cls._response(json, cb)
-        else:
-            response = list(filter(None, [cls._response(j, cb) for j in json]))
-
-        if response:
-            return simplejson.dumps(response)
-        else:
-            return ''
-
-    @classmethod
-    def _response(cls, json, cb):
+    # @classmethod
+    # def response(cls, json, cb):
+    #     """ Принимает JSON_RPC запрос, парсит, передаёт обработку в _response """
+    #     try:
+    #         json = simplejson.loads(json)
+    #     except simplejson.JSONDecodeError:
+    #         return simplejson.dumps(cls.parse_error())
+    #
+    #     if not isinstance(json, (dict, list)) or len(json) == 0:
+    #         return simplejson.dumps(cls.invalid_request())
+    #
+    #     if isinstance(json, dict):
+    #         response = cls._response(json, cb)
+    #     else:
+    #         response = list(filter(None, [cls._response(j, cb) for j in json]))
+    #
+    #     if response:
+    #         return simplejson.dumps(response)
+    #     else:
+    #         return ''
+    #
+    @staticmethod
+    def response(json, cb):
         """ Отвечает на один RPC запрос """
-        if len(json) == 0:
-            return cls.invalid_request()
+        if not isinstance(json, dict) or len(json) == 0:
+            return JsonRpcPipe.invalid_request()
+
 
         id = json.get('id')
+        if not json.get('jsonrpc'):
+            return JsonRpcPipe.invalid_request(id)
+        # noinspection PyBroadException
         try:
-            result = cls.success(cb(*json.get("params"), action=json.get("method")), id)
+            result = JsonRpcPipe.success(cb(json.get("method"), json.get("params")), id)
             if id is not None:
                 return result
-        except cls.ServerError as error:
-            return cls.server_error(error.code, id)
         except Request.RequiredArgumentIsMissing:
-            return cls.invalid_params(id)
+            return JsonRpcPipe.invalid_params(id)
+        except NotImplementedError:
+            return JsonRpcPipe.method_not_found(id)
 
 
 class PipeFactory(object):
