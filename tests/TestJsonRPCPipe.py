@@ -93,9 +93,9 @@ class TestJsonRpcPipe(unittest.TestCase):
 
     def test_unformal_request(self):
         """ Корректный ответ на запрос без указания версии jsonrpc """
-        self.request.set('q', '{"foo": "boo"}')
+        self.request.set('q', '{"foo": "boo", "id": 1}')
         self.assertJsonEqual(
-            '{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}',
+            '{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": 1}',
             self.pipe.process(self.controller, self.application, self.request, None, None)
         )
 
@@ -106,14 +106,6 @@ class TestJsonRpcPipe(unittest.TestCase):
             '{"jsonrpc": "2.0", "error": {"code": -32602, "message": "Invalid params"}, "id": 1}',
             self.pipe.process(self.controller, self.application, self.request, None, None)
         )
-
-    # def test_server_error(self):
-    #     self.request.set('q', '{"jsonrpc": "2.0", "method": "throw_server_error", "params": [], "id": 1}')
-    #     self.assertCountEqual(
-    #         loads('{"jsonrpc": "2.0", "error": {"code": -32001, "message": "Server error"}, "id": 1}'),
-    #         loads(JsonRpcPipe.response('{"jsonrpc": "2.0", "method": "subtract", "params": [], "id": 1}', method))
-    #     )
-    #
 
     def test_notification_without_error(self):
         """ Ответ на уведомление без ошибки """
@@ -138,6 +130,15 @@ class TestJsonRpcPipe(unittest.TestCase):
             '{"jsonrpc": "2.0", "error": {"code": -32601, "message": "Method not found"}, "id": 1}',
             self.pipe.process(self.controller, self.application, self.request, None, None)
         )
+
+    def test_server_error(self):
+        """ Корректный ответ для явно не отловленных исключений """
+        self.request.set('q', '{"jsonrpc": "2.0", "method": "divide", "params": {"dividend": 1, "divisor": 0}, "id": 1}')
+        self.assertJsonEqual(
+            '{"jsonrpc": "2.0", "error": {"code": -32000, "message": "Server error"}, "id": 1}',
+            self.pipe.process(self.controller, self.application, self.request, None, None)
+        )
+
 
     def test_params_in_request(self):
         """ Параметры в виде словаря доступны напрямую из request (см. реализацию действия add_a_b) """

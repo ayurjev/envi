@@ -171,6 +171,9 @@ class PjaxPipe(RequestPipe):
 
 
 class JsonRpcPipe(RequestPipe):
+    """
+    Реализация обработки JSON RPC запроса
+    """
     def process(self, controller: Controller, app: Application, request, user, host):
         def wrapper(method, params):
             if isinstance(params, dict):
@@ -180,7 +183,6 @@ class JsonRpcPipe(RequestPipe):
             request.set('action', method)
             return controller.process(app, request, user, host)
 
-        # noinspection PyBroadException
         try:
             json = simplejson.loads(request.get("q"))
 
@@ -191,7 +193,6 @@ class JsonRpcPipe(RequestPipe):
                 response = lambda: list(filter(None, [JsonRpcPipe.response(j, wrapper) for j in json]))
             else:
                 response = JsonRpcPipe.invalid_request
-
         except simplejson.JSONDecodeError:
             response = JsonRpcPipe.parse_error
 
@@ -208,117 +209,44 @@ class JsonRpcPipe(RequestPipe):
 
         return ''
 
-    class ServerError(Exception):
-        def __init__(self, code):
-            self.code = code
-
     @staticmethod
     def parse_error():
         """
         Invalid JSON was received by the server
         An error occurred on the server while parsing the JSON text
         """
-        return {
-            'jsonrpc': '2.0',
-            'error': {
-                'code': -32700,
-                'message': 'Parse error'
-            },
-            'id': None
-        }
+        return {'jsonrpc': '2.0', 'error': {'code': -32700, 'message': 'Parse error'}, 'id': None}
 
     @staticmethod
     def invalid_request(id=None):
         """ The JSON sent is not a valid Request object """
-        return {
-            'jsonrpc': '2.0',
-            'error': {
-                'code': -32600,
-                'message': 'Invalid Request'
-            },
-            'id': id
-        }
+        return {'jsonrpc': '2.0', 'error': {'code': -32600, 'message': 'Invalid Request'}, 'id': id}
 
     @staticmethod
     def method_not_found(id=None):
         """ The method does not exist / is not available """
-        return {
-            'jsonrpc': '2.0',
-            'error': {
-                'code': -32601,
-                'message': 'Method not found'
-            },
-            'id': id
-        }
+        return {'jsonrpc': '2.0', 'error': {'code': -32601, 'message': 'Method not found'}, 'id': id}
 
     @staticmethod
     def invalid_params(id=None):
         """ Invalid method parameter(s) """
-        return {
-            'jsonrpc': '2.0',
-            'error': {
-                'code': -32602,
-                'message': 'Invalid params'
-            },
-            'id': id
-        }
+        return {'jsonrpc': '2.0', 'error': {'code': -32602, 'message': 'Invalid params'}, 'id': id}
 
     @staticmethod
     def internal_error(id=None):
         """ Internal JSON-RPC error """
-        return {
-            'jsonrpc': '2.0',
-            'error': {
-                'code': -32603,
-                'message': 'Internal error'
-            },
-            'id': id
-        }
+        return {'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}, 'id': id}
 
     @staticmethod
-    def server_error(code, id):
-        """
-        Internal JSON-RPC error
-        code MUST BE in range from 0 to 99
-        """
-        return {
-            'jsonrpc': '2.0',
-            'error': {
-                'code': -32000 - code,
-                'message': 'Server error'
-            },
-            'id': id
-        }
+    def server_error(code, id=None):
+        """ Reserved for implementation-defined server-errors. Code MUST BE in range from 0 to 99 """
+        return {'jsonrpc': '2.0', 'error': {'code': -32000 - code, 'message': 'Server error'}, 'id': id}
 
     @staticmethod
     def success(result, id):
-        return {
-            'jsonrpc': '2.0',
-            'result': result,
-            'id': id
-        }
+        """ Ответ на успешно выполненный запрос """
+        return {'jsonrpc': '2.0', 'result': result, 'id': id}
 
-    # @classmethod
-    # def response(cls, json, cb):
-    #     """ Принимает JSON_RPC запрос, парсит, передаёт обработку в _response """
-    #     try:
-    #         json = simplejson.loads(json)
-    #     except simplejson.JSONDecodeError:
-    #         return simplejson.dumps(cls.parse_error())
-    #
-    #     if not isinstance(json, (dict, list)) or len(json) == 0:
-    #         return simplejson.dumps(cls.invalid_request())
-    #
-    #     if isinstance(json, dict):
-    #         response = cls._response(json, cb)
-    #     else:
-    #         response = list(filter(None, [cls._response(j, cb) for j in json]))
-    #
-    #     if response:
-    #         return simplejson.dumps(response)
-    #     else:
-    #         return ''
-    #
     @staticmethod
     def response(json, cb):
         """ Отвечает на один RPC запрос """
@@ -337,10 +265,11 @@ class JsonRpcPipe(RequestPipe):
         except NotImplementedError:
             result = JsonRpcPipe.method_not_found(id)
         except:
-            result = JsonRpcPipe.invalid_request(id)
+            result = JsonRpcPipe.server_error(0, id)
 
         if id:
             return result
+
 
 class PipeFactory(object):
     @staticmethod

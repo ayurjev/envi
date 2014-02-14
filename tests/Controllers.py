@@ -30,6 +30,10 @@ class BaseController(Controller):
         return request.get('a') + request.get('b')
 
     @staticmethod
+    def divide(request, **kwargs):
+        return request.get('dividend') / request.get('divisor')
+
+    @staticmethod
     def dummy_action(**kwargs):
         pass
 
