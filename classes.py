@@ -49,7 +49,10 @@ class Application(bottle.Bottle):
             host = self._host()
             return PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
 
-        super().route(path.rstrip("/"), ["GET", "POST"], wrapper)
+        if path != '/':
+            path = path.rstrip("/")
+
+        super().route(path, ["GET", "POST"], wrapper)
 
     def __call__(self, e, h):
         e['PATH_INFO'] = e['PATH_INFO'].rstrip('/')
