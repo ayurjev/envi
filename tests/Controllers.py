@@ -12,7 +12,7 @@ class BaseController(Controller):
         return app, request, user, host, domain_data
 
     @staticmethod
-    def substract(request, **kwargs):
+    def subtract(request, **kwargs):
         if len(request.get("params")) < 2:
             raise request.RequiredArgumentIsMissing()
 
