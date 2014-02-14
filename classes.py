@@ -253,22 +253,26 @@ class JsonRpcPipe(RequestPipe):
         if not isinstance(json, dict) or len(json) == 0:
             return JsonRpcPipe.invalid_request()
 
-        id = json.get('id')
-        if not json.get('jsonrpc'):
-            return JsonRpcPipe.invalid_request(id)
+        _id, params, method, version = json.get('id'), json.get('params', []), json.get('method'), json.get('jsonrpc')
+
+        if not version:
+            return JsonRpcPipe.invalid_request(_id) if _id else None
+
+        if not isinstance(method, str):
+            return JsonRpcPipe.invalid_request(_id) if _id else None
+
+        if not isinstance(params, (dict, list)):
+            return JsonRpcPipe.invalid_params(_id) if _id else None
 
         # noinspection PyBroadException
         try:
-            result = JsonRpcPipe.success(cb(json.get("method"), json.get("params")), id)
+            return JsonRpcPipe.success(cb(method, params), _id) if _id else None
         except Request.RequiredArgumentIsMissing:
-            result = JsonRpcPipe.invalid_params(id)
+            return JsonRpcPipe.invalid_params(_id) if _id else None
         except NotImplementedError:
-            result = JsonRpcPipe.method_not_found(id)
+            return JsonRpcPipe.method_not_found(_id) if _id else None
         except:
-            result = JsonRpcPipe.server_error(0, id)
-
-        if id:
-            return result
+            return JsonRpcPipe.server_error(0, _id) if _id else None
 
 
 class PipeFactory(object):

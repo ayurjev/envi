@@ -37,6 +37,14 @@ class TestJsonRpcPipe(unittest.TestCase):
             self.pipe.process(self.controller, self.application, self.request, None, None)
         )
 
+    def test_invalid_method(self):
+        """ Корректный ответ на запрос в котором имя метода не является строкой """
+        self.request.set('q', '{"jsonrpc": "2.0", "method": 1, "params": 2, "id": 1}')
+        self.assertJsonEqual(
+            '{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": 1}',
+            self.pipe.process(self.controller, self.application, self.request, None, None)
+        )
+
     def test_mixed_batch_request(self):
         """ Корректный ответ на пачку запросов """
         self.request.set('q', """
@@ -99,9 +107,17 @@ class TestJsonRpcPipe(unittest.TestCase):
             self.pipe.process(self.controller, self.application, self.request, None, None)
         )
 
-    def test_invalid_params(self):
-        """ Корректный ответ если в запросе недостаточно параметров """
+    def test_not_enough_params(self):
+        """ Корректный ответ когда запросе недостаточно параметров (может стоит в этом случае кидать server error?) """
         self.request.set('q', '{"jsonrpc": "2.0", "method": "subtract", "params": [], "id": 1}')
+        self.assertJsonEqual(
+            '{"jsonrpc": "2.0", "error": {"code": -32602, "message": "Invalid params"}, "id": 1}',
+            self.pipe.process(self.controller, self.application, self.request, None, None)
+        )
+
+    def test_really_invalid_params(self):
+        """ Корректный ответ на запрос в котором параметры заданы не списком и не объектом """
+        self.request.set('q', '{"jsonrpc": "2.0", "method": "subtract", "params": 2, "id": 1}')
         self.assertJsonEqual(
             '{"jsonrpc": "2.0", "error": {"code": -32602, "message": "Invalid params"}, "id": 1}',
             self.pipe.process(self.controller, self.application, self.request, None, None)
@@ -138,7 +154,6 @@ class TestJsonRpcPipe(unittest.TestCase):
             '{"jsonrpc": "2.0", "error": {"code": -32000, "message": "Server error"}, "id": 1}',
             self.pipe.process(self.controller, self.application, self.request, None, None)
         )
-
 
     def test_params_in_request(self):
         """ Параметры в виде словаря доступны напрямую из request (см. реализацию действия add_a_b) """
