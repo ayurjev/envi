@@ -15,14 +15,7 @@ class TestController(unittest.TestCase):
         converter = lambda cb: "%s %s" % (cb(), "append")
 
         self.app.set_static_pipe_output_converter(converter)
-        self.app.set_ajax_pipe_output_converter(converter)
-        self.app.set_pjax_pipe_output_converter(converter)
-        self.app.set_jsonrpc_pipe_output_converter(converter)
-
         self.assertEqual("static content append", StaticPipe.converter(lambda: "static content"))
-        self.assertEqual("ajax content append", AjaxPipe.converter(lambda: "ajax content"))
-        self.assertEqual("pjax content append", PjaxPipe.converter(lambda: "pjax content"))
-        self.assertEqual("jsonrpc content append", JsonRpcPipe.converter(lambda: "jsonrpc content"))
 
     # def test_controller_input_data(self):
     #     class User(object):

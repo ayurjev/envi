@@ -1,4 +1,5 @@
 import bottle
+import simplejson
 from abc import ABCMeta, abstractmethod
 
 
@@ -53,6 +54,28 @@ class Application(bottle.Bottle):
     def __call__(self, e, h):
         e['PATH_INFO'] = e['PATH_INFO'].rstrip('/')
         return super().__call__(e, h)
+
+
+class Controller(metaclass=ABCMeta):
+
+    default_action = "not_implemented"
+
+    @staticmethod
+    def not_implemented():
+        raise NotImplementedError()
+
+    def process(self, app: Application, request, user, host):
+        domain_data = self.setup(app=app, request=request, user=user, host=host)
+        try:
+            return self.__getattribute__(request.get("action", self.__class__.default_action))(
+                app=app, request=request, user=user, host=host, domain_data=domain_data
+            )
+        except AttributeError:
+            raise NotImplementedError()
+
+    @abstractmethod
+    def setup(self, app, request, user, host):
+        """ """
 
 
 class Request(object):
@@ -111,12 +134,13 @@ class Request(object):
         if self.get("q", False):
             return self.Types.JSON_RPC
         elif self.environ.get("HTTP_X_REQUESTED_WITH", "").lower() == 'xmlhttprequest':
-            if self.environ.get("HTTP_X_PJAX") is not None:
+            if self.environ.get("HTTP_X_PJAX"):
                 return self.Types.PJAX
             else:
                 return self.Types.AJAX
         else:
             return self.Types.STATIC
+
 
 class RequestPipe(metaclass=ABCMeta):
     def process(self, controller, app: Application, request, user, host):
@@ -147,7 +171,108 @@ class PjaxPipe(RequestPipe):
 
 
 class JsonRpcPipe(RequestPipe):
-    pass
+    """
+    Реализация обработки JSON RPC запроса
+    """
+    def process(self, controller: Controller, app: Application, request, user, host):
+        def wrapper(method, params):
+            if isinstance(params, dict):
+                request.update(params)
+
+            request.set('params', params)
+            request.set('action', method)
+            return controller.process(app, request, user, host)
+
+        try:
+            json = simplejson.loads(request.get("q"))
+
+            if isinstance(json, dict):
+                json = [json]
+
+            if isinstance(json, list) and len(json):
+                response = lambda: list(filter(None, [JsonRpcPipe.response(j, wrapper) for j in json]))
+            else:
+                response = JsonRpcPipe.invalid_request
+        except simplejson.JSONDecodeError:
+            response = JsonRpcPipe.parse_error
+
+        return JsonRpcPipe.converter(response)
+
+    @staticmethod
+    def converter(cb):
+        result = cb()
+        if result:
+            if len(result) == 1:
+                return simplejson.dumps(result.pop())
+            else:
+                return simplejson.dumps(result)
+
+        return ''
+
+    @staticmethod
+    def parse_error():
+        """
+        Invalid JSON was received by the server
+        An error occurred on the server while parsing the JSON text
+        """
+        return {'jsonrpc': '2.0', 'error': {'code': -32700, 'message': 'Parse error'}, 'id': None}
+
+    @staticmethod
+    def invalid_request(id=None):
+        """ The JSON sent is not a valid Request object """
+        return {'jsonrpc': '2.0', 'error': {'code': -32600, 'message': 'Invalid Request'}, 'id': id}
+
+    @staticmethod
+    def method_not_found(id=None):
+        """ The method does not exist / is not available """
+        return {'jsonrpc': '2.0', 'error': {'code': -32601, 'message': 'Method not found'}, 'id': id}
+
+    @staticmethod
+    def invalid_params(id=None):
+        """ Invalid method parameter(s) """
+        return {'jsonrpc': '2.0', 'error': {'code': -32602, 'message': 'Invalid params'}, 'id': id}
+
+    @staticmethod
+    def internal_error(id=None):
+        """ Internal JSON-RPC error """
+        return {'jsonrpc': '2.0', 'error': {'code': -32603, 'message': 'Internal error'}, 'id': id}
+
+    @staticmethod
+    def server_error(code, id=None):
+        """ Reserved for implementation-defined server-errors. Code MUST BE in range from 0 to 99 """
+        return {'jsonrpc': '2.0', 'error': {'code': -32000 - code, 'message': 'Server error'}, 'id': id}
+
+    @staticmethod
+    def success(result, id):
+        """ Ответ на успешно выполненный запрос """
+        return {'jsonrpc': '2.0', 'result': result, 'id': id}
+
+    @staticmethod
+    def response(json, cb):
+        """ Отвечает на один RPC запрос """
+        if not isinstance(json, dict) or len(json) == 0:
+            return JsonRpcPipe.invalid_request()
+
+        _id, params, method, version = json.get('id'), json.get('params', []), json.get('method'), json.get('jsonrpc')
+
+        if not version:
+            return JsonRpcPipe.invalid_request(_id) if _id else None
+
+        if not isinstance(method, str):
+            return JsonRpcPipe.invalid_request(_id) if _id else None
+
+        if not isinstance(params, (dict, list)):
+            return JsonRpcPipe.invalid_params(_id) if _id else None
+
+        # noinspection PyBroadException
+        try:
+            return JsonRpcPipe.success(cb(method, params), _id) if _id else None
+        except Request.RequiredArgumentIsMissing:
+            return JsonRpcPipe.invalid_params(_id) if _id else None
+        except NotImplementedError:
+            return JsonRpcPipe.method_not_found(_id) if _id else None
+        except:
+            return JsonRpcPipe.server_error(0, _id) if _id else None
 
 
 class PipeFactory(object):
@@ -162,25 +287,4 @@ class PipeFactory(object):
         else:
             return StaticPipe()
 
-
-class Controller(metaclass=ABCMeta):
-
-    default_action = "not_implemented"
-
-    @staticmethod
-    def not_implemented():
-        raise NotImplementedError()
-
-    def process(self, app: Application, request, user, host):
-        domain_data = self.setup(app=app, request=request, user=user, host=host)
-        try:
-            return self.__getattribute__(request.get("action", self.__class__.default_action))(
-                app=app, request=request, user=user, host=host, domain_data=domain_data
-            )
-        except AttributeError:
-            raise NotImplementedError()
-
-    @abstractmethod
-    def setup(self, app, request, user, host):
-        """ """
 
