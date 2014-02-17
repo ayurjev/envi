@@ -205,7 +205,7 @@ class JsonRpcPipe(RequestPipe):
     def converter(cb):
         result = cb()
         if result:
-            if len(result) == 1:
+            if isinstance(result, list) and len(result) == 1:
                 return simplejson.dumps(result.pop())
             else:
                 return simplejson.dumps(result)
