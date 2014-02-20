@@ -4,8 +4,6 @@ import tests.TestEnviRequest
 import tests.TestController
 import tests.TestJsonRPCPipe
 
-
-
 suite = unittest.TestSuite(tests=(
     unittest.loader.findTestCases(tests.TestRequest),
     unittest.loader.findTestCases(tests.TestEnviRequest),

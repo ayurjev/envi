@@ -5,7 +5,7 @@ class BaseController(Controller):
     default_action = "index"
 
     def setup(self, **kwargs):
-        return 1
+        return {}
 
     @staticmethod
     def index(app, request, user, host, domain_data):
@@ -43,7 +43,7 @@ class UsersController(Controller):
     default_action = "show"
 
     def setup(self, **kwargs):
-        pass
+        return {}
 
     @staticmethod
     def show(**kwargs):
@@ -52,7 +52,7 @@ class UsersController(Controller):
 
 class RequestController(Controller):
     def setup(self, **kwargs):
-        pass
+        return {}
 
     @staticmethod
     def get_arg(request, **kwargs):
