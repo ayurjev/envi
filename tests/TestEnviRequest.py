@@ -1,10 +1,24 @@
 import unittest
-from envi import Application
-from tests.Controllers import RequestController
+from envi import Application, Controller
 from io import BufferedReader, BytesIO
 
 
-class TestController(unittest.TestCase):
+class RequestController(Controller):
+    def setup(self, **kwargs):
+        return {}
+
+    @staticmethod
+    def get_arg(request, **kwargs):
+        return request.get('arg')
+
+    @staticmethod
+    def get_file(request, **kwargs):
+        request.get('arg').save("/tmp/test.txt", True)
+        with open('/tmp/test.txt') as f:
+            return f.read()
+
+
+class TestEnviRequest(unittest.TestCase):
     def setUp(self):
         self.app = Application()
         self.app.catchall = False
