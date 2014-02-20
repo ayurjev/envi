@@ -1,7 +1,17 @@
 import unittest
-from envi import Application, StaticPipe, AjaxPipe, PjaxPipe, JsonRpcPipe
-from tests.Controllers import UsersController
+from envi import Application, Controller, StaticPipe
 from io import BufferedReader, BytesIO
+
+class UsersController(Controller):
+    """ Пример контроллера действий над пользователями """
+    default_action = "show"
+
+    def setup(self, **kwargs):
+        return {}
+
+    @staticmethod
+    def show(**kwargs):
+        return "show users"
 
 class TestController(unittest.TestCase):
     def setUp(self):
@@ -16,24 +26,6 @@ class TestController(unittest.TestCase):
 
         self.app.set_static_pipe_output_converter(converter)
         self.assertEqual("static content append", StaticPipe.converter(lambda: "static content"))
-
-    # def test_controller_input_data(self):
-    #     class User(object):
-    #         pass
-    #     """ Проверяю что метод контроллера получает данные """
-    #     self.app.route("/", BaseController)
-    #
-    #     app, request, user, host = self.app, bottle.request, None, None
-    #     domain_data = BaseController().setup(app, request, user, host)
-    #
-    #     # Вызов роутера внутри bottle app
-    #     self.assertEqual((app, request, user, host, domain_data), self.app.routes[-1].call())
-    #
-    #     user = User()
-    #     self.app.set_user_initialization_hook(lambda: user)
-    #
-    #     self.assertEqual((app, request, user, host, domain_data), self.app.routes[-1].call())
-
 
     def test_routing(self):
         """
