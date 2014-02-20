@@ -1,6 +1,6 @@
 import unittest
 from envi import Application, StaticPipe, AjaxPipe, PjaxPipe, JsonRpcPipe
-from tests.Controllers import BaseController, UsersController
+from tests.Controllers import UsersController
 from io import BufferedReader, BytesIO
 
 class TestController(unittest.TestCase):
