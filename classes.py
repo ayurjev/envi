@@ -54,6 +54,10 @@ class Application(bottle.Bottle):
 
         super().route(path, ["GET", "POST"], wrapper)
 
+    @staticmethod
+    def redirect(path, code=None):
+        bottle.redirect(path, code)
+
     def __call__(self, e, h):
         e['PATH_INFO'] = e['PATH_INFO'].rstrip('/')
         return super().__call__(e, h)
@@ -96,6 +100,7 @@ class Request(object):
     def __init__(self, *args, **kwargs):
         self._request = {}
         self.environ = kwargs.get("environ", {})
+        self.response = Response()
 
         for data in args:
             self.update(data)
@@ -143,6 +148,12 @@ class Request(object):
                 return self.Types.AJAX
         else:
             return self.Types.STATIC
+
+
+class Response(object):
+    add_header = bottle.response.add_header
+    set_cookie = bottle.response.set_cookie
+    delete_cookie = bottle.response.delete_cookie
 
 
 class RequestPipe(metaclass=ABCMeta):
