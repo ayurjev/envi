@@ -210,6 +210,7 @@ class JsonRpcPipe(RequestPipe):
         except simplejson.JSONDecodeError:
             response = JsonRpcPipe.parse_error
 
+        request.response.add_header("Content-Type", "application/json")
         return JsonRpcPipe.converter(response)
 
     @staticmethod
