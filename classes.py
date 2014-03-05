@@ -313,3 +313,57 @@ class PipeFactory(object):
             return StaticPipe()
 
 
+class ControllerMethodResponseWithTemplate(object):
+    """ Класс для оформления результатов работы декоратора template """
+    def __init__(self, data, template_name):
+        self.data = data
+        self.template = template_name
+
+
+def template(template_name, if_true=None, if_exc=None):
+    """
+    Декоратор, предназначенный для декорирования методов класса Controller, позволяющий определять имя шаблона
+    либо на основании проверки результатов выполнения декорируемого метода контроллера, либо на основании возникновения
+    некоторых (определенных при декорировании) типов исключений
+
+    """
+    def decorator(func):
+        def wrapped(*args, **kwargs):
+            try:
+                # Получаем данные контроллера или результат выполнения предыдущего в цепочке декоратора
+                data = func(*args, **kwargs)
+                # Если результат уже декорирован просто возвращаем его
+                # (очевидно, один из нескольких декораторов уже успешно отработал)
+                if isinstance(data, ControllerMethodResponseWithTemplate):
+                    return data
+
+                # Если передана функция проверки результатов выполнения метода контроллера,
+                # то чтобы выбрать текуший template_name необходимо чтобы эта функция проверки вернула True
+                if if_true:
+                    if if_true(data):
+                        return ControllerMethodResponseWithTemplate(data, template_name)
+                    else:
+                        # Если функция проверки не возвращает True,
+                        # возвращаем только результат выполнения контроллера для других декораторов
+                        return data
+                elif if_exc:
+                    # Если передано условия по типу исключения, но оно, очевидно, не возникло,
+                    # возвращаем только результат выполнения контроллера для других декораторов
+                    return data
+                else:
+                    # Если не передано ничего - значит это дефолтный декоратор.
+                    # Декорируем и возвращаем в виде ControllerMethodResponseWithTemplate,
+                    # тем самым прерывая цепочку декорирования
+                    return ControllerMethodResponseWithTemplate(data, template_name)
+            except Exception as err:
+                # Если возникло исключение и при декорировании этот тип исключения был описан, то
+                # # Декорируем и возвращаем в виде ControllerMethodResponseWithTemplate,
+                # тем самым прерывая цепочку декорирования и всплытия исключения
+                if if_exc and isinstance(err, if_exc):
+                    return ControllerMethodResponseWithTemplate(
+                        {"name": err.__class__.__name__, "message": str(err)}, template_name
+                    )
+                # В противном случае продолжаем поднимать исключение вверх по стеку
+                raise err
+        return wrapped
+    return decorator
