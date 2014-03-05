@@ -43,7 +43,6 @@ class TestController(unittest.TestCase):
 
         self.assertRaises(NotImplementedError, self.app, {"REQUEST_METHOD": "GET", "PATH_INFO": "/users/test/", "wsgi.input": BufferedReader(BytesIO())}, self.test_response)
 
-
     def test_headers(self):
         class TestControl(Controller):
             def setup(self, app, request, user, host) -> dict:
