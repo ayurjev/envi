@@ -90,6 +90,10 @@ class Request(object):
         """ Исключение, возникающие если не предоставлен какой-либо из требуемых приложением параметров запроса """
         pass
 
+    class ArgumentTypeError(Exception):
+        """ Исключение, возникающие при неудачной попытке приведения параметра запроса к желемому типу данных """
+        pass
+
     class Types(object):
         """ Типы запросов """
         STATIC = 0
@@ -105,15 +109,21 @@ class Request(object):
         for data in args:
             self.update(data)
 
-    def get(self, key, default=None):
+    def get(self, key, default=None, cast_type=None):
         """
         Возвращает значение параметра запроса по его имени
         @param key: Требуемый параметр
         @param default: Значение, используемое поумолчанию, если значения для key не предоставлено
         """
         if key in self._request.keys():
-            return self._request.get(key)
-        elif default is not None:
+            value = self._request.get(key)
+            if len(str(value)):
+                try:
+                    return cast_type(value) if cast_type is not None else value
+                except ValueError:
+                    raise Request.ArgumentTypeError("argument '%s' can't be casted to %s" % (key, cast_type))
+
+        if default is not None:
             return default
         else:
             raise Request.RequiredArgumentIsMissing("required argument '%s' is missing in your query" % key)
@@ -282,7 +292,7 @@ class JsonRpcPipe(RequestPipe):
         # noinspection PyBroadException
         try:
             return JsonRpcPipe.success(cb(method, params), _id) if _id else None
-        except Request.RequiredArgumentIsMissing:
+        except (Request.RequiredArgumentIsMissing, Request.ArgumentTypeError):
             return JsonRpcPipe.invalid_params(_id) if _id else None
         except NotImplementedError:
             return JsonRpcPipe.method_not_found(_id) if _id else None

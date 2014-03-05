@@ -14,6 +14,18 @@ class TestRequest(unittest.TestCase):
         self.assertEqual(3, request.get('c'))
         self.assertEqual(4, request.get('d'))
 
+    def test_getter_type_casting(self):
+        """ Автоматическое приведение аргументов к нужному типу """
+        request = envi.Request({'b': '2'})
+        self.assertEqual('2', request.get('b'))
+        self.assertEqual(2, request.get('b', cast_type=int))
+
+    def test_getter_type_casting_exception(self):
+        """ Выброс исключения при невозможности приведения аргументов к нужному типу """
+        request = envi.Request({'a': '1abc'})
+        self.assertRaises(envi.Request.ArgumentTypeError, request.get, 'a', cast_type=int)
+        self.assertEqual('1abc', request.get('a'))
+
     def test_setter(self):
         """ Сеттер добавляет в запрос новый аргумент """
         self.request.set('argument', True)

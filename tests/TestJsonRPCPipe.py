@@ -29,6 +29,10 @@ class JsonRpcController(Controller):
         return sum(request.get("params"))
 
     @staticmethod
+    def cast_int(request, **kwargs):
+        return request.get('a', cast_type=int)
+
+    @staticmethod
     def add_a_b(request, **kwargs):
         return request.get('a') + request.get('b')
 
@@ -141,11 +145,23 @@ class TestJsonRpcPipe(unittest.TestCase):
             self.test_app.get("/", params={'q': '{"jsonrpc": "2.0", "method": "subtract", "params": [], "id": 1}'}).body.decode()
         )
 
-    def test_really_invalid_params(self):
+    def test_invalid_params(self):
         """ Корректный ответ на запрос в котором параметры заданы не списком и не объектом """
         self.assertJsonEqual(
             '{"jsonrpc": "2.0", "error": {"code": -32602, "message": "Invalid params"}, "id": 1}',
             self.test_app.get("/", params={'q': '{"jsonrpc": "2.0", "method": "subtract", "params": 2, "id": 1}'}).body.decode()
+        )
+
+    def test_casting(self):
+        """ Корректный ответ на удачный и неудачный кастинг аргументов """
+        self.assertJsonEqual(
+            '{"jsonrpc": "2.0", "error": {"code": -32602, "message": "Invalid params"}, "id": 1}',
+            self.test_app.get("/", params={'q': '{"jsonrpc": "2.0", "method": "cast_int", "params": {"a": "1abc"}, "id": 1}'}).body.decode()
+        )
+
+        self.assertJsonEqual(
+            '{"jsonrpc": "2.0", "result": 1, "id": 1}',
+            self.test_app.get("/", params={'q': '{"jsonrpc": "2.0", "method": "cast_int", "params": {"a": "1"}, "id": 1}'}).body.decode()
         )
 
     def test_notification_without_error(self):
