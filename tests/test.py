@@ -1,16 +1,12 @@
 import unittest
-import tests.TestRequest
-import tests.TestEnviRequest
-import tests.TestController
-import tests.TestJsonRPCPipe
-import tests.TestTemplateDecorator
+from envi.tests import TestRequest, TestEnviRequest, TestController, TestJsonRPCPipe, TestTemplateDecorator
 
 suite = unittest.TestSuite(tests=(
-    unittest.loader.findTestCases(tests.TestRequest),
-    unittest.loader.findTestCases(tests.TestEnviRequest),
-    unittest.loader.findTestCases(tests.TestController),
-    unittest.loader.findTestCases(tests.TestJsonRPCPipe),
-    unittest.loader.findTestCases(tests.TestTemplateDecorator),
+    unittest.loader.findTestCases(TestRequest),
+    unittest.loader.findTestCases(TestEnviRequest),
+    unittest.loader.findTestCases(TestController),
+    unittest.loader.findTestCases(TestJsonRPCPipe),
+    unittest.loader.findTestCases(TestTemplateDecorator),
 ))
 
 if __name__ == "__main__":
