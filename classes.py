@@ -76,11 +76,12 @@ class Controller(metaclass=ABCMeta):
     def process(self, app: Application, request, user, host):
         domain_data = self.setup(app=app, request=request, user=user, host=host)
         try:
-            return self.__getattribute__(request.get("action", self.__class__.default_action))(
-                app=app, request=request, user=user, host=host, **domain_data
-            )
+            cb = self.__getattribute__(request.get("action", self.__class__.default_action))
         except AttributeError:
             raise NotImplementedError()
+        return cb(
+            app=app, request=request, user=user, host=host, **domain_data
+        )
 
     def setup(self, app, request, user, host) -> dict:
         """ Можно переопределять в создаваемых контроллерах """
