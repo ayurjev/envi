@@ -40,11 +40,13 @@ class Application(bottle.Bottle):
         }
 
     # noinspection PyMethodOverriding
-    def route(self, path, controller):
+    def route(self, path, controller, action=None):
         app = self
 
         def wrapper(*args, **kwargs):
             request = Request(kwargs, dict(bottle.request.GET.decode()), dict(bottle.request.POST.decode()), environ=dict(bottle.request.environ))
+            if action:
+                request.set("action", action)
             user = Application.user_initialization_hook()
             host = self._host()
             return PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
