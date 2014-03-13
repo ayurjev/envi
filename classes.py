@@ -82,10 +82,9 @@ class Controller(metaclass=ABCMeta):
         except AttributeError:
             raise NotImplementedError()
 
-    @abstractmethod
     def setup(self, app, request, user, host) -> dict:
-        """ """
-
+        """ Можно переопределять в создаваемых контроллерах """
+        return {}
 
 class Request(object):
     class RequiredArgumentIsMissing(Exception):
