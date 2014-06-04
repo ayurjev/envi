@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 
 class Application(bottle.Bottle):
     @staticmethod
-    def user_initialization_hook():
+    def user_initialization_hook(application, request):
         """
             Функция для инициализации пользователя приложения
         """
@@ -47,7 +47,7 @@ class Application(bottle.Bottle):
             request = Request(kwargs, dict(bottle.request.GET.decode()), dict(bottle.request.POST.decode()), environ=dict(bottle.request.environ))
             if action:
                 request.set("action", action)
-            user = Application.user_initialization_hook()
+            user = Application.user_initialization_hook(app, request)
             host = self._host()
             return PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
 
