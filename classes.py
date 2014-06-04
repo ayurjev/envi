@@ -91,6 +91,31 @@ class Controller(metaclass=ABCMeta):
         """ Можно переопределять в создаваемых контроллерах """
         return {}
 
+
+class ProxyController(Controller, metaclass=ABCMeta):
+    """ Проксирующий контроллер """
+    def setup(self, app, request, user, host):
+        data = {"proxy_controller": self.factory_method(app, request, user, host), "action": request.get("action")}
+        request.set("action", "ret")
+        return data
+
+    @staticmethod
+    def ret(proxy_controller, action, app, request, user, host):
+        request.set("action", action)
+        return proxy_controller.process(app, request, user, host)
+
+    @staticmethod
+    @abstractmethod
+    def factory_method(app, request, user, host):
+        """ Переопределить для возвращения корректного целевого контроллера
+        :param app: приложение
+        :param request: запрос
+        :param user: пользователь
+        :param host: хост
+        :return: корректный целевой контроллер
+        """
+
+
 class Request(object):
     class RequiredArgumentIsMissing(Exception):
         """ Исключение, возникающие если не предоставлен какой-либо из требуемых приложением параметров запроса """
