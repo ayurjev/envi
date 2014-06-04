@@ -165,6 +165,10 @@ class Request(object):
         else:
             return self.Types.STATIC
 
+    @property
+    def url(self):
+        return self.environ.get("PATH_INFO")
+
 
 class Response(object):
     add_header = bottle.response.add_header
