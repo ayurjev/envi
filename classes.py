@@ -95,14 +95,15 @@ class Controller(metaclass=ABCMeta):
 class ProxyController(Controller, metaclass=ABCMeta):
     """ Проксирующий контроллер """
     def setup(self, app, request, user, host):
-        data = {"proxy_controller": self.factory_method(app, request, user, host), "action": request.get("action")}
+        proxy_controller = self.factory_method(app, request, user, host)
+        data = {"proxy_controller": proxy_controller, "action": request.get("action", proxy_controller.default_action)}
         request.set("action", "ret")
         return data
 
     @staticmethod
     def ret(proxy_controller, action, app, request, user, host):
         request.set("action", action)
-        return proxy_controller.process(app, request, user, host)
+        return proxy_controller().process(app, request, user, host)
 
     @staticmethod
     @abstractmethod
