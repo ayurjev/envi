@@ -44,7 +44,11 @@ class Application(bottle.Bottle):
         app = self
 
         def wrapper(*args, **kwargs):
-            request = Request(kwargs, dict(bottle.request.GET.decode()), dict(bottle.request.POST.decode()), environ=dict(bottle.request.environ))
+            request = Request(
+                kwargs, dict(bottle.request.GET.decode()),
+                dict(bottle.request.POST.decode()),
+                dict(bottle.request.cookies),
+                environ=dict(bottle.request.environ))
             if action:
                 request.set("action", action)
             user = Application.user_initialization_hook(app, request)
