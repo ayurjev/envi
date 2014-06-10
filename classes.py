@@ -83,13 +83,17 @@ class Controller(metaclass=ABCMeta):
             cb = self.__getattribute__(request.get("action", self.__class__.default_action))
         except AttributeError:
             raise NotImplementedError()
-        return cb(
-            app=app, request=request, user=user, host=host, **domain_data
-        )
+        return self.apply_to_each_response(
+            response=cb(app=app, request=request, user=user, host=host, **domain_data),
+            app=app, request=request, user=user, host=host, **domain_data)
 
     def setup(self, app, request, user, host) -> dict:
         """ Можно переопределять в создаваемых контроллерах """
         return {}
+
+    def apply_to_each_response(self, response, app, request, user, host, **kwargs):
+        """ Можно переопределять в создаваемых контроллерах """
+        return response
 
 
 class ProxyController(Controller, metaclass=ABCMeta):
@@ -354,6 +358,10 @@ class ControllerMethodResponseWithTemplate(object):
     def __init__(self, data, template_name):
         self.data = data
         self.template = template_name
+
+    def __str__(self):
+        return simplejson.dumps(self.data)
+
 
 
 def template(template_name, if_true=None, if_exc=None):
