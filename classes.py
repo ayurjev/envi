@@ -44,9 +44,13 @@ class Application(bottle.Bottle):
         app = self
 
         def wrapper(*args, **kwargs):
+            post_decoded = bottle.request.POST.decode()
+            arr_keys = list(filter(lambda k: k.endswith("[]"), dict(post_decoded).keys()))
+            arrays_from_post = {arr_key.rstrip("[]"): post_decoded.getall(arr_key) for arr_key in arr_keys}
             request = Request(
                 kwargs, dict(bottle.request.GET.decode()),
-                dict(bottle.request.POST.decode()),
+                dict(post_decoded),
+                arrays_from_post,
                 dict(bottle.request.cookies),
                 environ=dict(bottle.request.environ))
             if action:
