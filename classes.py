@@ -163,11 +163,10 @@ class Request(object):
         """
         if key in self._request.keys():
             value = self._request.get(key)
-            if len(str(value)):
-                try:
-                    return cast_type(value) if cast_type is not None else value
-                except ValueError:
-                    raise Request.ArgumentTypeError("argument '%s' can't be casted to %s" % (key, cast_type))
+            try:
+                return cast_type(value) if cast_type is not None else value
+            except ValueError:
+                raise Request.ArgumentTypeError("argument '%s' can't be casted to %s" % (key, cast_type))
 
         if default is not None:
             return default
