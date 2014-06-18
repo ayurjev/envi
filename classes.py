@@ -44,17 +44,23 @@ class Application(bottle.Bottle):
         app = self
 
         def wrapper(*args, **kwargs):
-            post_decoded = bottle.request.POST.decode()
-            arr_keys = list(filter(lambda k: k.endswith("[]"), dict(post_decoded).keys()))
-            arrays_from_post = {arr_key.rstrip("[]"): post_decoded.getall(arr_key) for arr_key in arr_keys}
+            get_decoded = dict(bottle.request.GET.decode())
+            post_decoded = dict(bottle.request.POST.decode())
+
+            try:
+                post_json = simplejson.loads(post_decoded.get("json", "{}"))
+            except simplejson.JSONDecodeError:
+                post_json = {}
+
             request = Request(
-                kwargs, dict(bottle.request.GET.decode()),
-                dict(post_decoded),
-                arrays_from_post,
+                kwargs, get_decoded, post_decoded,
+                {'json': post_json} if isinstance(post_json, list) else post_json,
                 dict(bottle.request.cookies),
                 environ=dict(bottle.request.environ))
+
             if action:
                 request.set("action", action)
+
             user = Application.user_initialization_hook(app, request)
             host = self._host()
             return PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
