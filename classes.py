@@ -1,14 +1,13 @@
+import re
+import json
 import bottle
-import simplejson
 from abc import ABCMeta, abstractmethod
-
+from datetime import datetime, date, time
 
 class Application(bottle.Bottle):
     @staticmethod
     def user_initialization_hook(application, request):
-        """
-            Функция для инициализации пользователя приложения
-        """
+        """ Функция для инициализации пользователя приложения """
 
     @staticmethod
     def set_user_initialization_hook(cb):
@@ -48,8 +47,8 @@ class Application(bottle.Bottle):
             post_decoded = dict(bottle.request.POST.decode())
 
             try:
-                post_json = simplejson.loads(post_decoded.get("json", "{}"))
-            except simplejson.JSONDecodeError:
+                post_json = json.loads(post_decoded.get("json", "{}"), object_hook=json_loads_handler)
+            except:
                 post_json = {}
 
             request = Request(
@@ -63,7 +62,8 @@ class Application(bottle.Bottle):
 
             user = Application.user_initialization_hook(app, request)
             host = self._host()
-            return PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
+            result = PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
+            return json.dumps(result, default=json_dumps_handler) if type(result) in [list, dict] else result
 
         if path != '/':
             path = path.rstrip("/")
@@ -260,7 +260,7 @@ class JsonRpcPipe(RequestPipe):
             return controller.process(app, request, user, host)
 
         try:
-            json = simplejson.loads(request.get("q"))
+            json = json.loads(request.get("q"))
 
             if isinstance(json, dict):
                 json = [json]
@@ -269,7 +269,7 @@ class JsonRpcPipe(RequestPipe):
                 response = lambda: list(filter(None, [JsonRpcPipe.response(j, wrapper) for j in json]))
             else:
                 response = JsonRpcPipe.invalid_request
-        except simplejson.JSONDecodeError:
+        except json.JSONDecodeError:
             response = JsonRpcPipe.parse_error
 
         request.response.add_header("Content-Type", "application/json")
@@ -280,9 +280,9 @@ class JsonRpcPipe(RequestPipe):
         result = cb()
         if result:
             if isinstance(result, list) and len(result) == 1:
-                return simplejson.dumps(result.pop())
+                return json.dumps(result.pop())
             else:
-                return simplejson.dumps(result)
+                return json.dumps(result)
 
         return ''
 
@@ -372,7 +372,7 @@ class ControllerMethodResponseWithTemplate(object):
         self.template = template_name
 
     def __str__(self):
-        return simplejson.dumps(self.data)
+        return json.dumps(self.data, default=json_dumps_handler) if type(self.data) in [list, dict] else str(self.data)
 
 
 
@@ -423,3 +423,24 @@ def template(template_name, if_true=None, if_exc=None):
                 raise err
         return wrapped
     return decorator
+
+
+def json_dumps_handler(obj):
+    """ json dumps handler """
+    if isinstance(obj, time):
+        obj = datetime(1970, 1, 1, obj.hour, obj.minute, obj.second)
+        return obj.ctime()
+    if isinstance(obj, datetime) or isinstance(obj, date):
+        return obj.ctime()
+    return None
+
+
+def json_loads_handler(data):
+    """ json loads handler """
+    for k, v in data.items():
+        if isinstance(v, str) and re.search("\w\w\w[\s]+\w\w\w[\s]+\d[\d]*[\s]+\d\d:\d\d:\d\d[\s]+\d\d\d\d", v):
+            try:
+                data[k] = datetime.strptime(v, "%a %b %d %H:%M:%S %Y")
+            except Exception as err:
+                raise err
+    return data
