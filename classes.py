@@ -84,7 +84,7 @@ class Controller(metaclass=ABCMeta):
     default_action = "not_implemented"
 
     @staticmethod
-    def not_implemented():
+    def not_implemented(**kwargs):
         raise NotImplementedError()
 
     def process(self, app: Application, request, user, host):
@@ -110,6 +110,9 @@ class ProxyController(Controller, metaclass=ABCMeta):
     """ Проксирующий контроллер """
     def setup(self, app, request, user, host):
         proxy_controller = self.factory_method(app, request, user, host)
+        while issubclass(proxy_controller, ProxyController):
+            proxy_controller = proxy_controller.factory_method(app, request, user, host)
+
         data = {"proxy_controller": proxy_controller, "action": request.get("action", proxy_controller.default_action)}
         request.set("action", "ret")
         return data
