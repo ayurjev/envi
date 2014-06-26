@@ -81,6 +81,7 @@ class Application(bottle.Bottle):
 
 class Controller(metaclass=ABCMeta):
 
+    error_template = "error_template"
     default_action = "not_implemented"
 
     @staticmethod
@@ -89,10 +90,19 @@ class Controller(metaclass=ABCMeta):
 
     def process(self, app: Application, request, user, host):
         domain_data = self.setup(app=app, request=request, user=user, host=host)
+
+        error_response = lambda error_data: self.apply_to_each_response(
+            response=ControllerMethodResponseWithTemplate(error_data, self.error_template),
+            app=app, request=request, user=user, host=host, **domain_data)
+
+        request.set("error_response", error_response)
+
         try:
             cb = self.__getattribute__(request.get("action", self.__class__.default_action))
         except AttributeError:
             raise NotImplementedError()
+
+
         return self.apply_to_each_response(
             response=cb(app=app, request=request, user=user, host=host, **domain_data),
             app=app, request=request, user=user, host=host, **domain_data)
@@ -218,15 +228,23 @@ class Response(object):
     delete_cookie = bottle.response.delete_cookie
 
 
+class PipeConverterException(Exception):
+    def __init__(self, error_data=None):
+        super().__init__()
+        self.error_data = error_data
+
+
 class RequestPipe(metaclass=ABCMeta):
     def process(self, controller, app: Application, request, user, host):
-        return self.__class__.converter(lambda: controller.process(app, request, user, host))
+        try:
+            converted = self.__class__.converter(lambda: controller.process(app, request, user, host))
+        except PipeConverterException as pce:
+            converted = self.__class__.converter(lambda: request.get("error_response")(pce.error_data))
+        return converted
 
     @staticmethod
     def converter(cb):
-        """
-            Конвертор
-        """
+        """ Конвертор """
         # noinspection PyBroadException
         try:
             return cb()
