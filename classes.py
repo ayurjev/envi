@@ -4,30 +4,42 @@ import bottle
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, date, time
 
+
+class ControllerMethodResponseWithTemplate(object):
+    """ Класс для оформления результатов работы декоратора template """
+    def __init__(self, data, template_name):
+        self.data = data
+        self.template = template_name
+
+    def __str__(self):
+        return json.dumps(self.data, default=json_dumps_handler) if type(self.data) in [list, dict] else str(self.data)
+
+
 class Application(bottle.Bottle):
-    @staticmethod
-    def user_initialization_hook(application, request):
+
+    # noinspection PyMethodMayBeStatic
+    def user_initialization_hook(self, request):
         """ Функция для инициализации пользователя приложения """
+        return None
 
-    @staticmethod
-    def set_user_initialization_hook(cb):
-        Application.user_initialization_hook = cb
+    # noinspection PyMethodMayBeStatic
+    def ajax_output_converter(self, result) -> dict:
+        """ Функция для конвертации ответов при ajax запросах
+        Здесь можно настроить формат положительных и отрицательных результатов ajax-запросов
+        :param result: Экземпляр исключения (Exception) или Словарь с данными (dict)
+        """
+        if isinstance(result, Exception):
+            return {"error": {"type": str(type(result)), "message": str(result)}}
+        else:
+            return result
 
-    @staticmethod
-    def set_static_pipe_output_converter(cb):
-        StaticPipe.converter = cb
-
-    @staticmethod
-    def set_ajax_pipe_output_converter(cb):
-        AjaxPipe.converter = cb
-
-    @staticmethod
-    def set_pjax_pipe_output_converter(cb):
-        PjaxPipe.converter = cb
-
-    @staticmethod
-    def set_jsonrpc_pipe_output_converter(cb):
-        JsonRpcPipe.converter = cb
+    # noinspection PyMethodMayBeStatic
+    def static_output_converter(self, result: ControllerMethodResponseWithTemplate) -> str:
+        """ Функция для конвертации ответов при статических загрузках страницы
+        Переопределить для подключения кастомной шаблонизации
+        :param result: Ответ в формате ControllerMethodResponseWithTemplate
+        """
+        return "%s + %s" % (result.template, json.dumps(result.data, default=json_dumps_handler))
 
     @staticmethod
     def _host():
@@ -60,10 +72,14 @@ class Application(bottle.Bottle):
             if action:
                 request.set("action", action)
 
-            user = Application.user_initialization_hook(app, request)
+            # noinspection PyNoneFunctionAssignment
+            user = self.user_initialization_hook(request)
             host = self._host()
-            result = PipeFactory.get_pipe(request).process(controller(), app, request, user, host)
-            return json.dumps(result, default=json_dumps_handler) if type(result) in [list, dict] else result
+            pipe = JsonRpcRequestPipe() if request.type() == Request.Types.JSON_RPC else RequestPipe()
+            result = pipe.process(controller(), app, request, user, host)
+            if isinstance(result, (bytes, bytearray)):
+                return result
+            return json.dumps(result, default=json_dumps_handler) if type(result) in [list, dict] else str(result)
 
         if path != '/':
             path = path.rstrip("/")
@@ -102,7 +118,6 @@ class Controller(metaclass=ABCMeta):
         except AttributeError:
             raise NotImplementedError()
 
-
         return self.apply_to_each_response(
             response=cb(app=app, request=request, user=user, host=host, **domain_data),
             app=app, request=request, user=user, host=host, **domain_data)
@@ -111,6 +126,7 @@ class Controller(metaclass=ABCMeta):
         """ Можно переопределять в создаваемых контроллерах """
         return {}
 
+    # noinspection PyMethodMayBeStatic
     def apply_to_each_response(self, response, app, request, user, host, **kwargs):
         """ Можно переопределять в создаваемых контроллерах """
         return response
@@ -228,43 +244,25 @@ class Response(object):
     delete_cookie = bottle.response.delete_cookie
 
 
-class PipeConverterException(Exception):
-    def __init__(self, error_data=None):
-        super().__init__()
-        self.error_data = error_data
-
-
 class RequestPipe(metaclass=ABCMeta):
-    def process(self, controller, app: Application, request, user, host):
+    def process(self, controller, app, request, user, host):
         try:
-            converted = self.__class__.converter(lambda: controller.process(app, request, user, host))
-        except PipeConverterException as pce:
-            converted = self.__class__.converter(lambda: request.get("error_response")(pce.error_data))
-        return converted
-
-    @staticmethod
-    def converter(cb):
-        """ Конвертор """
-        # noinspection PyBroadException
-        try:
-            return cb()
-        except:
-            return ""
-
-
-class StaticPipe(RequestPipe):
-    pass
+            result = controller.process(app, request, user, host)
+            if isinstance(result, ControllerMethodResponseWithTemplate):
+                result = app.static_output_converter(result) \
+                    if request.type() == request.Types.STATIC else app.ajax_output_converter(result.data)
+            elif request.type() != request.Types.STATIC:
+                result = app.ajax_output_converter(result)
+        except Exception as err:
+            if type(err) is bottle.HTTPResponse:
+                result = err
+            else:
+                result = app.static_output_converter(request.get("error_response")(app.ajax_output_converter(err))) \
+                    if request.type() == request.Types.STATIC else app.ajax_output_converter(err)
+        return result
 
 
-class AjaxPipe(RequestPipe):
-    pass
-
-
-class PjaxPipe(RequestPipe):
-    pass
-
-
-class JsonRpcPipe(RequestPipe):
+class JsonRpcRequestPipe(RequestPipe):
     """
     Реализация обработки JSON RPC запроса
     """
@@ -278,20 +276,20 @@ class JsonRpcPipe(RequestPipe):
             return controller.process(app, request, user, host)
 
         try:
-            json = json.loads(request.get("q"))
+            json_data = json.loads(request.get("q"))
 
-            if isinstance(json, dict):
-                json = [json]
+            if isinstance(json_data, dict):
+                json_data = [json_data]
 
             if isinstance(json, list) and len(json):
-                response = lambda: list(filter(None, [JsonRpcPipe.response(j, wrapper) for j in json]))
+                response = lambda: list(filter(None, [JsonRpcRequestPipe.response(j, wrapper) for j in json]))
             else:
-                response = JsonRpcPipe.invalid_request
-        except json.JSONDecodeError:
-            response = JsonRpcPipe.parse_error
+                response = JsonRpcRequestPipe.invalid_request
+        except Exception:
+            response = JsonRpcRequestPipe.parse_error
 
         request.response.add_header("Content-Type", "application/json")
-        return JsonRpcPipe.converter(response)
+        return JsonRpcRequestPipe.converter(response)
 
     @staticmethod
     def converter(cb):
@@ -346,52 +344,28 @@ class JsonRpcPipe(RequestPipe):
     def response(json, cb):
         """ Отвечает на один RPC запрос """
         if not isinstance(json, dict) or len(json) == 0:
-            return JsonRpcPipe.invalid_request()
+            return JsonRpcRequestPipe.invalid_request()
 
         _id, params, method, version = json.get('id'), json.get('params', []), json.get('method'), json.get('jsonrpc')
 
         if not version:
-            return JsonRpcPipe.invalid_request(_id) if _id else None
+            return JsonRpcRequestPipe.invalid_request(_id) if _id else None
 
         if not isinstance(method, str):
-            return JsonRpcPipe.invalid_request(_id) if _id else None
+            return JsonRpcRequestPipe.invalid_request(_id) if _id else None
 
         if not isinstance(params, (dict, list)):
-            return JsonRpcPipe.invalid_params(_id) if _id else None
+            return JsonRpcRequestPipe.invalid_params(_id) if _id else None
 
         # noinspection PyBroadException
         try:
-            return JsonRpcPipe.success(cb(method, params), _id) if _id else None
+            return JsonRpcRequestPipe.success(cb(method, params), _id) if _id else None
         except (Request.RequiredArgumentIsMissing, Request.ArgumentTypeError):
-            return JsonRpcPipe.invalid_params(_id) if _id else None
+            return JsonRpcRequestPipe.invalid_params(_id) if _id else None
         except NotImplementedError:
-            return JsonRpcPipe.method_not_found(_id) if _id else None
+            return JsonRpcRequestPipe.method_not_found(_id) if _id else None
         except:
-            return JsonRpcPipe.server_error(0, _id) if _id else None
-
-
-class PipeFactory(object):
-    @staticmethod
-    def get_pipe(request: Request):
-        if request.type() == Request.Types.PJAX:
-            return PjaxPipe()
-        elif request.type() == Request.Types.AJAX:
-            return AjaxPipe()
-        elif request.type() == Request.Types.JSON_RPC:
-            return JsonRpcPipe()
-        else:
-            return StaticPipe()
-
-
-class ControllerMethodResponseWithTemplate(object):
-    """ Класс для оформления результатов работы декоратора template """
-    def __init__(self, data, template_name):
-        self.data = data
-        self.template = template_name
-
-    def __str__(self):
-        return json.dumps(self.data, default=json_dumps_handler) if type(self.data) in [list, dict] else str(self.data)
-
+            return JsonRpcRequestPipe.server_error(0, _id) if _id else None
 
 
 def template(template_name, if_true=None, if_exc=None):

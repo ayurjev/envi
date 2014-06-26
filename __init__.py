@@ -1,4 +1,4 @@
 from envi.classes import Application, Controller, ProxyController,\
-    StaticPipe, AjaxPipe, PjaxPipe, JsonRpcPipe,\
+    RequestPipe, JsonRpcRequestPipe,\
     Request, Response,\
-    template, ControllerMethodResponseWithTemplate, PipeConverterException
+    template, ControllerMethodResponseWithTemplate
