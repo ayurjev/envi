@@ -59,7 +59,7 @@ class Application(bottle.Bottle):
             post_decoded = dict(bottle.request.POST.decode())
 
             try:
-                post_json = json.loads(post_decoded.get("json", "{}"), object_hook=json_loads_handler)
+                post_json = json.loads(post_decoded.get("json", get_decoded.get("json", "{}")), object_hook=json_loads_handler)
             except:
                 post_json = {}
 
@@ -73,7 +73,13 @@ class Application(bottle.Bottle):
                 request.set("action", action)
 
             # noinspection PyNoneFunctionAssignment
-            user = self.user_initialization_hook(request)
+            try:
+                user = self.user_initialization_hook(request)
+            except Exception as err:
+                if not isinstance(err, bottle.HTTPResponse):
+                    return self.ajax_output_converter(err)
+                else:
+                    raise err
             host = self._host()
             pipe = JsonRpcRequestPipe() if request.type() == Request.Types.JSON_RPC else RequestPipe()
             result = pipe.process(controller(), app, request, user, host)
