@@ -201,6 +201,14 @@ class RequestTests(unittest.TestCase):
         self.assertRaises(Request.ArgumentTypeError, request.get, 'a', cast_type=int)
         self.assertEqual('1abc', request.get('a'))
 
+    def test_getter_default(self):
+        request = Request({'a': 1}, {'b': 2}, {'c': 3}, {'d': 4})
+        self.assertRaises(Request.RequiredArgumentIsMissing, request.get, 'x')
+        self.assertEqual("xxx", request.get('x', "xxx"))
+        self.assertEqual("xxx", request.get('x', default="xxx"))
+        self.assertEqual(None, request.get('x', None))
+        self.assertEqual(None, request.get('x', default=None))
+
     def test_setter(self):
         """ Сеттер добавляет в запрос новый аргумент """
         self.request.set('argument', True)
@@ -224,10 +232,6 @@ class RequestTests(unittest.TestCase):
     def test_missing_argument(self):
         """ Запрос отсутствующего аргумента без указания дефолтного значения вызывает исключение """
         self.assertRaises(Request.RequiredArgumentIsMissing, self.request.get, 'missing_argument')
-
-    def test_missing_argument_with_none(self):
-        """ Запрос отсутствующего аргумента с дефолтным значением None вызывает исключение """
-        self.assertRaises(Request.RequiredArgumentIsMissing, self.request.get, 'missing_argument', None)
 
     def test_override(self):
         """ Из нескольких значений аргумента в запросе сохранится последнее переданное """

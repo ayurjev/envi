@@ -190,12 +190,16 @@ class Request(object):
         for data in args:
             self.update(data)
 
-    def get(self, key, default=None, cast_type=None):
+    def get(self, key, *args, **kwargs):
         """
         Возвращает значение параметра запроса по его имени
         @param key: Требуемый параметр
         @param default: Значение, используемое поумолчанию, если значения для key не предоставлено
         """
+
+        default = args[0] if len(args) > 0 else kwargs.get("default")
+        cast_type = args[1] if len(args) > 1 else kwargs.get("cast_type")
+
         if key in self._request.keys():
             value = self._request.get(key)
             try:
@@ -203,7 +207,7 @@ class Request(object):
             except ValueError:
                 raise Request.ArgumentTypeError("argument '%s' can't be casted to %s" % (key, cast_type))
 
-        if default is not None:
+        if "default" in kwargs or len(args) > 0:
             return default
         else:
             raise Request.RequiredArgumentIsMissing("required argument '%s' is missing in your query" % key)
