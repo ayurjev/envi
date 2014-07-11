@@ -64,9 +64,9 @@ class Application(bottle.Bottle):
                 post_json = {}
 
             request = Request(
+                dict(bottle.request.cookies),
                 kwargs, get_decoded, post_decoded,
                 {'json': post_json} if isinstance(post_json, list) else post_json,
-                dict(bottle.request.cookies),
                 environ=dict(bottle.request.environ))
 
             if action:
