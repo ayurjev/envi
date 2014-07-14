@@ -3,6 +3,7 @@ import json
 import bottle
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, date, time
+from pprint import pformat
 
 
 class ControllerMethodResponseWithTemplate(object):
@@ -246,6 +247,9 @@ class Request(object):
     @property
     def url(self):
         return self.environ.get("PATH_INFO")
+
+    def __str__(self):
+        return pformat(self._request)
 
 
 class Response(object):
