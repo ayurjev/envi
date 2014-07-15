@@ -56,8 +56,11 @@ class Application(bottle.Bottle):
         app = self
 
         def wrapper(*args, **kwargs):
-            get_decoded = dict(bottle.request.GET.decode())
-            post_decoded = dict(bottle.request.POST.decode())
+            try:
+                get_decoded = dict(bottle.request.GET.decode())
+                post_decoded = dict(bottle.request.POST.decode())
+            except UnicodeDecodeError:
+                return self.ajax_output_converter(Exception("Invalid HTTP request encoding. Must be 'ISO-8859-1'."))
 
             try:
                 post_json = json.loads(post_decoded.get("json", get_decoded.get("json", "{}")), object_hook=json_loads_handler)
