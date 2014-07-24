@@ -297,6 +297,10 @@ class Request(object):
         return bottle.request.url
 
     @property
+    def host(self):
+        return bottle.request.environ.get("HTTP_HOST")
+
+    @property
     def path(self):
         return bottle.request.path
 
