@@ -3,7 +3,6 @@ import json
 import bottle
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, date, time
-from pprint import pformat
 
 
 class ControllerMethodResponseWithTemplate(object):
@@ -51,6 +50,39 @@ class Application(bottle.Bottle):
             "user_agent": bottle.request.environ.get("HTTP_USER_AGENT"),
         }
 
+    @staticmethod
+    def log(request, resp):
+        event_template = "[{datetime:%d/%b/%Y:%H:%M:%S}] - {request.remote_ip} - {request.method} - {request.url}\n" \
+                         "---- Headers ---- {request.headers}\n" \
+                         "---- Request ---- {request_str}\n" \
+                         "---- Response --- {response}\n\n\n"
+
+        response_template_params = {
+            "type": type(resp).__name__,
+            "size": len(resp),
+            "response": ""
+        } if isinstance(resp, (bytes, bytearray)) else {
+            "type": type(resp).__name__,
+            "size": len(str(resp)),
+            "response": str(resp)
+        }
+
+        if len(str(resp)) > 128:
+            response_template_params["response"] = response_template_params["response"][:128]
+
+        try:
+            with open("/tmp/envi-{host}.log".format(host=request.host), "a") as log_file:
+                log_file.write(
+                    event_template.format(
+                        datetime=datetime.today(),
+                        request=request,
+                        request_str=str(request),
+                        response="{type}({size}) {response}".format(**response_template_params)
+                    )
+                )
+        except PermissionError:
+            return
+
     # noinspection PyMethodOverriding
     def route(self, path, controller, action=None):
         app = self
@@ -60,7 +92,9 @@ class Application(bottle.Bottle):
                 get_decoded = dict(bottle.request.GET.decode())
                 post_decoded = dict(bottle.request.POST.decode())
             except UnicodeDecodeError:
-                return self.ajax_output_converter(Exception("Invalid HTTP request encoding. Must be 'ISO-8859-1'."))
+                response = self.ajax_output_converter(Exception("Invalid HTTP request encoding. Must be 'ISO-8859-1'."))
+                self.log(Request(), response)
+                return response
 
             try:
                 post_json = json.loads(post_decoded.get("json", get_decoded.get("json", "{}")), object_hook=json_loads_handler)
@@ -81,12 +115,15 @@ class Application(bottle.Bottle):
                 user = self.user_initialization_hook(request)
             except Exception as err:
                 if not isinstance(err, bottle.HTTPResponse):
-                    return self.ajax_output_converter(err)
+                    response = self.ajax_output_converter(err)
+                    self.log(request, response)
+                    return response
                 else:
                     raise err
             host = self._host()
             pipe = JsonRpcRequestPipe() if request.type() == Request.Types.JSON_RPC else RequestPipe()
             result = pipe.process(controller(), app, request, user, host)
+            self.log(request, result)
             if isinstance(result, (bytes, bytearray)):
                 return result
             return json.dumps(result, default=json_dumps_handler) if type(result) in [list, dict] else str(result)
@@ -248,11 +285,31 @@ class Request(object):
             return self.Types.STATIC
 
     @property
+    def method(self):
+        return bottle.request.method
+
+    @property
+    def headers(self):
+        return dict(bottle.request.headers)
+
+    @property
     def url(self):
-        return self.environ.get("PATH_INFO")
+        return bottle.request.url
+
+    @property
+    def path(self):
+        return bottle.request.path
+
+    @property
+    def cookies(self):
+        return dict(bottle.request.cookies)
+
+    @property
+    def remote_ip(self):
+        return bottle.request.remote_addr
 
     def __str__(self):
-        return pformat(self._request)
+        return str({key: value for key, value in self._request.items() if key != "error_response"})
 
 
 class Response(object):
@@ -298,8 +355,8 @@ class JsonRpcRequestPipe(RequestPipe):
             if isinstance(json_data, dict):
                 json_data = [json_data]
 
-            if isinstance(json, list) and len(json):
-                response = lambda: list(filter(None, [JsonRpcRequestPipe.response(j, wrapper) for j in json]))
+            if isinstance(json_data, list) and len(json_data):
+                response = lambda: list(filter(None, [JsonRpcRequestPipe.response(j, wrapper) for j in json_data]))
             else:
                 response = JsonRpcRequestPipe.invalid_request
         except Exception:
