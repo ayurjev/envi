@@ -158,7 +158,10 @@ class Controller(metaclass=ABCMeta):
             response=ControllerMethodResponseWithTemplate(error_data, self.error_template),
             app=app, request=request, user=user, host=host, **domain_data)
 
+        error_response2 = lambda error_data: ControllerMethodResponseWithTemplate(error_data, self.error_template)
+
         request.set("error_response", error_response)
+        request.set("error_response2", error_response2)
 
         try:
             cb = self.__getattribute__(request.get("action", self.__class__.default_action))
@@ -313,7 +316,7 @@ class Request(object):
         return bottle.request.remote_addr
 
     def __str__(self):
-        return str({key: value for key, value in self._request.items() if key != "error_response"})
+        return str({key: value for key, value in self._request.items() if key not in ["error_response", "error_response2"]})
 
 
 class Response(object):
@@ -335,8 +338,12 @@ class RequestPipe(metaclass=ABCMeta):
             if type(err) is bottle.HTTPResponse:
                 result = err
             else:
-                result = app.static_output_converter(request.get("error_response")(app.ajax_output_converter(err))) \
-                    if request.type() == request.Types.STATIC else app.ajax_output_converter(err)
+                try:
+                    result = app.static_output_converter(request.get("error_response")(app.ajax_output_converter(err))) \
+                        if request.type() == request.Types.STATIC else app.ajax_output_converter(err)
+                except:
+                    result = app.static_output_converter(request.get("error_response2")(app.ajax_output_converter(err))) \
+                        if request.type() == request.Types.STATIC else app.ajax_output_converter(err)
         return result
 
 
