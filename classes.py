@@ -336,7 +336,7 @@ class RequestPipe(metaclass=ABCMeta):
                 result = app.ajax_output_converter(result)
         except Exception as err:
             if type(err) is bottle.HTTPResponse:
-                result = err
+                raise err
             else:
                 try:
                     result = app.static_output_converter(request.get("error_response")(app.ajax_output_converter(err))) \
