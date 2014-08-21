@@ -70,17 +70,19 @@ class Application(bottle.Bottle):
         if len(str(resp)) > 128:
             response_template_params["response"] = response_template_params["response"][:128]
 
+        # noinspection PyBroadException
         try:
             with open("/tmp/envi-{host}.log".format(host=request.host), "a") as log_file:
+                short_request = {key: value if len(value) <= 1024 else value[:128] for key, value in request.items()}
                 log_file.write(
                     event_template.format(
                         datetime=datetime.today(),
                         request=request,
-                        request_str=str(request),
+                        request_str=str(short_request),
                         response="{type}({size}) {response}".format(**response_template_params)
                     )
                 )
-        except PermissionError:
+        except Exception:
             return
 
     # noinspection PyMethodOverriding
@@ -314,6 +316,9 @@ class Request(object):
     @property
     def remote_ip(self):
         return bottle.request.remote_addr
+
+    def items(self):
+        return self._request.items()
 
     def __str__(self):
         return str({key: value for key, value in self._request.items() if key not in ["error_response", "error_response2"]})
