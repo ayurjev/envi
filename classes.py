@@ -73,7 +73,7 @@ class Application(bottle.Bottle):
         # noinspection PyBroadException
         try:
             with open("/tmp/envi-{host}.log".format(host=request.host), "a") as log_file:
-                short_request = {key: value if len(value) <= 1024 else value[:128] for key, value in request.items()}
+                short_request = {key: value if len(str(value)) <= 1024 else value[:128] for key, value in request.items()}
                 log_file.write(
                     event_template.format(
                         datetime=datetime.today(),
@@ -82,7 +82,7 @@ class Application(bottle.Bottle):
                         response="{type}({size}) {response}".format(**response_template_params)
                     )
                 )
-        except Exception:
+        except IOError:
             return
 
     # noinspection PyMethodOverriding
@@ -318,10 +318,13 @@ class Request(object):
         return bottle.request.remote_addr
 
     def items(self):
-        return self._request.items()
+        return {
+            key: value for key, value in self._request.items()
+            if key not in ["error_response", "error_response2"]
+        }.items()
 
     def __str__(self):
-        return str({key: value for key, value in self.items() if key not in ["error_response", "error_response2"]})
+        return str(self.items())
 
 
 class Response(object):
