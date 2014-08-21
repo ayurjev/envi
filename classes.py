@@ -321,7 +321,7 @@ class Request(object):
         return self._request.items()
 
     def __str__(self):
-        return str({key: value for key, value in self._request.items() if key not in ["error_response", "error_response2"]})
+        return str({key: value for key, value in self.items() if key not in ["error_response", "error_response2"]})
 
 
 class Response(object):
