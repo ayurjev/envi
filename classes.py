@@ -1,6 +1,6 @@
 import re
 import json
-import bottle
+from z9.envi import bottle
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, date, time
 
@@ -16,6 +16,9 @@ class ControllerMethodResponseWithTemplate(object):
 
 
 class Application(bottle.Bottle):
+
+    def __init__(self):
+        super().__init__(catchall=False)
 
     # noinspection PyMethodMayBeStatic
     def user_initialization_hook(self, request):
