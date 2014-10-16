@@ -76,7 +76,7 @@ class Application(bottle.Bottle):
         # noinspection PyBroadException
         try:
             with open("/tmp/envi-{host}.log".format(host=request.host), "a") as log_file:
-                short_request = {key: value if len(str(value)) <= 1024 else value[:128] for key, value in request.items()}
+                short_request = {key: value for key, value in request.items()}
                 log_file.write(
                     event_template.format(
                         datetime=datetime.today(),
