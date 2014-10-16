@@ -70,8 +70,8 @@ class Application(bottle.Bottle):
             "response": str(resp)
         }
 
-        if len(str(resp)) > 128:
-            response_template_params["response"] = response_template_params["response"][:128]
+        # if len(str(resp)) > 128:
+        #     response_template_params["response"] = response_template_params["response"][:128]
 
         # noinspection PyBroadException
         try:
