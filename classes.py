@@ -12,7 +12,7 @@ class ControllerMethodResponseWithTemplate(object):
         self.template = template_name
 
     def __str__(self):
-        return json.dumps(self.data, default=json_dumps_handler) if type(self.data) in [list, dict] else str(self.data)
+        return json.dumps(self.data, default=json_dumps_handler) if isinstance(self.data, (list, dict)) else str(self.data)
 
 
 class Application(bottle.Bottle):
@@ -131,7 +131,7 @@ class Application(bottle.Bottle):
             self.log(request, result)
             if isinstance(result, (bytes, bytearray)):
                 return result
-            return json.dumps(result, default=json_dumps_handler) if type(result) in [list, dict] else str(result)
+            return json.dumps(result, default=json_dumps_handler) if isinstance(result, (list, dict)) else str(result)
 
         if path != '/':
             path = path.rstrip("/")
@@ -157,16 +157,16 @@ class Controller(metaclass=ABCMeta):
         raise NotImplementedError()
 
     def process(self, app: Application, request, user, host):
+        error_response2 = lambda error_data: ControllerMethodResponseWithTemplate(error_data, self.error_template)
+        request.set("error_response2", error_response2)
+
         domain_data = self.setup(app=app, request=request, user=user, host=host)
 
         error_response = lambda error_data: self.apply_to_each_response(
             response=ControllerMethodResponseWithTemplate(error_data, self.error_template),
             app=app, request=request, user=user, host=host, **domain_data)
 
-        error_response2 = lambda error_data: ControllerMethodResponseWithTemplate(error_data, self.error_template)
-
         request.set("error_response", error_response)
-        request.set("error_response2", error_response2)
 
         try:
             cb = self.__getattribute__(request.get("action", self.__class__.default_action))
