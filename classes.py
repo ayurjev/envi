@@ -4,6 +4,7 @@ from envi import bottle
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, date, time
 
+bottle.BaseRequest.MEMFILE_MAX = 1024 * 1024
 
 class ControllerMethodResponseWithTemplate(object):
     """ Класс для оформления результатов работы декоратора template """
