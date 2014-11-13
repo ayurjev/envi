@@ -75,19 +75,19 @@ class Application(bottle.Bottle):
         #     response_template_params["response"] = response_template_params["response"][:128]
 
         # noinspection PyBroadException
-        try:
-            with open("/tmp/envi-{host}.log".format(host=request.host), "a") as log_file:
-                short_request = {key: value for key, value in request.items()}
-                log_file.write(
-                    event_template.format(
-                        datetime=datetime.today(),
-                        request=request,
-                        request_str=str(short_request),
-                        response="{type}({size}) {response}".format(**response_template_params)
-                    )
-                )
-        except IOError:
-            return
+        # try:
+        #     with open("/tmp/envi-{host}.log".format(host=request.host), "a") as log_file:
+        #         short_request = {key: value for key, value in request.items()}
+        #         log_file.write(
+        #             event_template.format(
+        #                 datetime=datetime.today(),
+        #                 request=request,
+        #                 request_str=str(short_request),
+        #                 response="{type}({size}) {response}".format(**response_template_params)
+        #             )
+        #         )
+        # except IOError:
+        #     return
 
     # noinspection PyMethodOverriding
     def route(self, path, controller, action=None):
