@@ -87,7 +87,7 @@ class ThirdException(Exception):
 
 class ControllerTestsFixture(unittest.TestCase):
     def setUp(self):
-        self.app = Application(catchall=False)
+        self.app = Application()
         self.app.route("/", TestController)
         self.app.route("/<action>/", TestController)
         self.app.route("/options/", TestProxyController)
