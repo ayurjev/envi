@@ -130,7 +130,7 @@ class Application(bottle.Bottle):
             pipe = JsonRpcRequestPipe() if request.type() == Request.Types.JSON_RPC else RequestPipe()
             result = pipe.process(controller(), app, request, user, host)
             self.log(request, result)
-            if isinstance(result, (bytes, bytearray)):
+            if isinstance(result, (bytes, bytearray)) or (type(result) is bottle.HTTPResponse):
                 return result
             return json.dumps(result, default=json_dumps_handler) if isinstance(result, (list, dict)) else str(result)
 
@@ -138,6 +138,16 @@ class Application(bottle.Bottle):
             path = path.rstrip("/")
 
         super().route(path, ["GET", "POST"], wrapper)
+
+    def route_static(self, root):
+        """
+        Роутинг статики
+        :param root: директория с статикой
+        """
+        class StaticController(Controller):
+            default_action = 'static'
+            def static(self, request, **kwargs): return bottle.static_file(request.get('path'), root)
+        self.route("/<path:re:.*\..*>", StaticController)
 
     @staticmethod
     def redirect(path, code=None):
