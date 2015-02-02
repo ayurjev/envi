@@ -1,10 +1,17 @@
+from z9.core.exceptions import CommonException
 import re
 import json
+import traceback
 from envi import bottle
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, date, time
 
+
 bottle.BaseRequest.MEMFILE_MAX = 1024 * 1024
+
+def log(err: Exception):
+    if not isinstance(err, CommonException):
+        traceback.print_exc()
 
 class ControllerMethodResponseWithTemplate(object):
     """ Класс для оформления результатов работы декоратора template """
@@ -54,41 +61,6 @@ class Application(bottle.Bottle):
             "user_agent": bottle.request.environ.get("HTTP_USER_AGENT"),
         }
 
-    @staticmethod
-    def log(request, resp):
-        event_template = "[{datetime:%d/%b/%Y:%H:%M:%S}] - {request.remote_ip} - {request.method} - {request.url}\n" \
-                         "---- Headers ---- {request.headers}\n" \
-                         "---- Request ---- {request_str}\n" \
-                         "---- Response --- {response}\n\n\n"
-
-        response_template_params = {
-            "type": type(resp).__name__,
-            "size": len(resp),
-            "response": ""
-        } if isinstance(resp, (bytes, bytearray)) else {
-            "type": type(resp).__name__,
-            "size": len(str(resp)),
-            "response": str(resp)
-        }
-
-        # if len(str(resp)) > 128:
-        #     response_template_params["response"] = response_template_params["response"][:128]
-
-        # noinspection PyBroadException
-        # try:
-        #     with open("/tmp/envi-{host}.log".format(host=request.host), "a") as log_file:
-        #         short_request = {key: value for key, value in request.items()}
-        #         log_file.write(
-        #             event_template.format(
-        #                 datetime=datetime.today(),
-        #                 request=request,
-        #                 request_str=str(short_request),
-        #                 response="{type}({size}) {response}".format(**response_template_params)
-        #             )
-        #         )
-        # except IOError:
-        #     return
-
     # noinspection PyMethodOverriding
     def route(self, path, controller, action=None):
         app = self
@@ -97,9 +69,9 @@ class Application(bottle.Bottle):
             try:
                 get_decoded = dict(bottle.request.GET.decode())
                 post_decoded = dict(bottle.request.POST.decode())
-            except UnicodeDecodeError:
+            except UnicodeDecodeError as err:
                 response = self.ajax_output_converter(Exception("Invalid HTTP request encoding. Must be 'ISO-8859-1'."))
-                self.log(Request(), response)
+                log(err)
                 return response
 
             try:
@@ -121,15 +93,14 @@ class Application(bottle.Bottle):
                 user = self.user_initialization_hook(request)
             except Exception as err:
                 if not isinstance(err, bottle.HTTPResponse):
+                    log(err)
                     response = self.ajax_output_converter(err)
-                    self.log(request, response)
                     return response
                 else:
                     raise err
             host = self._host()
             pipe = JsonRpcRequestPipe() if request.type() == Request.Types.JSON_RPC else RequestPipe()
             result = pipe.process(controller(), app, request, user, host)
-            self.log(request, result)
             if isinstance(result, (bytes, bytearray)) or (type(result) is bottle.HTTPResponse):
                 return result
             return json.dumps(result, default=json_dumps_handler) if isinstance(result, (list, dict)) else str(result)
@@ -360,6 +331,7 @@ class RequestPipe(metaclass=ABCMeta):
             if type(err) is bottle.HTTPResponse:
                 raise err
             else:
+                log(err)
                 try:
                     result = app.static_output_converter(request.get("error_response")(app.ajax_output_converter(err))) \
                         if request.type() == request.Types.STATIC else app.ajax_output_converter(err)
