@@ -1,4 +1,3 @@
-from z9.core.exceptions import CommonException
 import re
 import json
 import traceback
@@ -8,10 +7,6 @@ from datetime import datetime, date, time
 
 
 bottle.BaseRequest.MEMFILE_MAX = 1024 * 1024
-
-def log(err: Exception):
-    if not isinstance(err, CommonException):
-        traceback.print_exc()
 
 class ControllerMethodResponseWithTemplate(object):
     """ Класс для оформления результатов работы декоратора template """
@@ -24,9 +19,16 @@ class ControllerMethodResponseWithTemplate(object):
 
 
 class Application(bottle.Bottle):
+    ignored_exceptions = []
 
     def __init__(self):
         super().__init__(catchall=False)
+
+    @classmethod
+    def log(cls, err: Exception):
+        ignored_exceptions = tuple([Request.RequiredArgumentIsMissing] + cls.ignored_exceptions)
+        if not isinstance(err, ignored_exceptions):
+            traceback.print_exc()
 
     # noinspection PyMethodMayBeStatic
     def user_initialization_hook(self, request):
@@ -71,7 +73,7 @@ class Application(bottle.Bottle):
                 post_decoded = dict(bottle.request.POST.decode())
             except UnicodeDecodeError as err:
                 response = self.ajax_output_converter(Exception("Invalid HTTP request encoding. Must be 'ISO-8859-1'."))
-                log(err)
+                self.log(err)
                 return response
 
             try:
@@ -93,7 +95,7 @@ class Application(bottle.Bottle):
                 user = self.user_initialization_hook(request)
             except Exception as err:
                 if not isinstance(err, bottle.HTTPResponse):
-                    log(err)
+                    self.log(err)
                     response = self.ajax_output_converter(err)
                     return response
                 else:
@@ -331,7 +333,7 @@ class RequestPipe(metaclass=ABCMeta):
             if type(err) is bottle.HTTPResponse:
                 raise err
             else:
-                log(err)
+                app.log(err)
                 try:
                     result = app.static_output_converter(request.get("error_response")(app.ajax_output_converter(err))) \
                         if request.type() == request.Types.STATIC else app.ajax_output_converter(err)
