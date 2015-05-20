@@ -490,7 +490,7 @@ def template(template_name, if_true=None, if_exc=None):
                 # тем самым прерывая цепочку декорирования и всплытия исключения
                 if if_exc and isinstance(err, if_exc):
                     return ControllerMethodResponseWithTemplate(
-                        {"name": err.__class__.__name__, "message": str(err)}, template_name
+                        {"name": re.search("'(.+)'", str(err.__class__)).group(1), "message": str(err)}, template_name
                     )
                 # В противном случае продолжаем поднимать исключение вверх по стеку
                 raise err
