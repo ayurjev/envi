@@ -1,6 +1,7 @@
 import re
 import json
 import traceback
+from io import BytesIO
 from envi import bottle
 from abc import ABCMeta, abstractmethod
 from datetime import datetime, date, time
@@ -246,6 +247,11 @@ class Request(object):
             return default
         else:
             raise Request.RequiredArgumentIsMissing("required argument '%s' is missing in your query" % key)
+
+    def get_file(self, key):
+        b = BytesIO()
+        self.get(key).save(b)
+        return self.get(key).filename, b.getvalue()
 
     def set(self, key, value):
         """
