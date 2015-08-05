@@ -1,5 +1,6 @@
 import re
 import json
+import time as profiler_time
 import traceback
 from io import BytesIO
 from envi import bottle
@@ -21,6 +22,21 @@ class ControllerMethodResponseWithTemplate(object):
         return json.dumps(self.data, default=json_dumps_handler) if isinstance(self.data, (list, dict)) else str(self.data)
 
 
+class Profiler(object):
+    def __init__(self):
+        self._startTime = 0
+
+    def __enter__(self):
+        self._startTime = profiler_time.time()
+        return self
+
+    def __exit__(self, etype, value, traceback):
+        pass
+
+    def get_amount(self):
+        return float(profiler_time.time() - self._startTime)
+
+
 class Application(bottle.Bottle):
     ignored_exceptions = []
 
@@ -32,6 +48,10 @@ class Application(bottle.Bottle):
         ignored_exceptions = tuple([Request.RequiredArgumentIsMissing] + cls.ignored_exceptions)
         if not isinstance(err, ignored_exceptions):
             traceback.print_exc()
+
+    @classmethod
+    def performance_report(cls, user, request, result, amount):
+        pass
 
     # noinspection PyMethodMayBeStatic
     def user_initialization_hook(self, request):
@@ -93,22 +113,24 @@ class Application(bottle.Bottle):
             if action:
                 request.set("action", action)
 
-            # noinspection PyNoneFunctionAssignment
-            try:
-                user = self.user_initialization_hook(request)
-            except Exception as err:
-                if not isinstance(err, bottle.HTTPResponse):
-                    self.log(err)
-                    response = self.ajax_output_converter(err)
-                    return response
-                else:
-                    raise err
-            host = self._host()
-            pipe = JsonRpcRequestPipe() if request.type() == Request.Types.JSON_RPC else RequestPipe()
-            result = pipe.process(controller(), app, request, user, host)
-            if isinstance(result, (bytes, bytearray)) or (type(result) is bottle.HTTPResponse):
-                return result
-            return json.dumps(result, default=json_dumps_handler) if isinstance(result, (list, dict)) else str(result)
+            with Profiler() as p:
+                # noinspection PyNoneFunctionAssignment
+                try:
+                    user = self.user_initialization_hook(request)
+                except Exception as err:
+                    if not isinstance(err, bottle.HTTPResponse):
+                        self.log(err)
+                        response = self.ajax_output_converter(err)
+                        return response
+                    else:
+                        raise err
+                host = self._host()
+                pipe = JsonRpcRequestPipe() if request.type() == Request.Types.JSON_RPC else RequestPipe()
+                result = pipe.process(controller(), app, request, user, host)
+                self.performance_report(user, request, result, p.get_amount())
+                if isinstance(result, (bytes, bytearray)) or (type(result) is bottle.HTTPResponse):
+                    return result
+                return json.dumps(result, default=json_dumps_handler) if isinstance(result, (list, dict)) else str(result)
 
         if path != '/':
             path = path.rstrip("/")
