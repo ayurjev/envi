@@ -303,6 +303,8 @@ class Request(object):
                 return self.Types.PJAX
             else:
                 return self.Types.AJAX
+        elif self.environ.get("HTTP_UPGRADE") == "websocket":
+            return self.Types.AJAX
         else:
             return self.Types.STATIC
 
