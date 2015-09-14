@@ -273,7 +273,7 @@ class Request(object):
     def get_file(self, key):
         b = BytesIO()
         self.get(key).save(b)
-        return self.get(key).filename, b.getvalue()
+        return self.get(key).raw_filename, b.getvalue()
 
     def set(self, key, value):
         """
