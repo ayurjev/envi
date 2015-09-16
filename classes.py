@@ -153,7 +153,12 @@ class Application(bottle.Bottle):
 
     def __call__(self, e, h):
         e['PATH_INFO'] = e['PATH_INFO'].rstrip('/')
-        return super().__call__(e, h)
+        try:
+            return super().__call__(e, h)
+        except SystemExit:
+            # Уходим молча.
+            # Заголовки не отправляем.
+            return []
 
 
 class Controller(metaclass=ABCMeta):
@@ -223,6 +228,51 @@ class ProxyController(Controller, metaclass=ABCMeta):
         :return: корректный целевой контроллер
         """
 
+
+class WebSocketController(Controller):
+    default_action = "connect"
+
+    def open(self, app, request, user, host):
+        """ Открытие сокета """
+
+    def close(self, app, request, user, host):
+        """ Закрытие сокета """
+
+    def tick(self, app, request, user, host):
+        """ Получение сообщения с сокета """
+
+    def connect(self, app, request, user, host):
+        # noinspection PyUnresolvedReferences
+        import uwsgi
+        import json
+        uwsgi.websocket_handshake()
+
+        self.open(app=app, request=request, user=user, host=host)
+        try:
+            while True:
+                try:
+                    msg = uwsgi.websocket_recv()
+                except OSError:
+                    raise SystemExit()
+
+                msg = msg.decode()
+                msg = json.loads(msg)
+                if "action" in msg:
+                    ws_request = Request(msg, environ=request.environ)
+                    pipe = RequestPipe()
+                    result = pipe.process(self, app, ws_request, user, host)
+                    if isinstance(result, dict):
+                        result.update({"ws": {"event": msg["action"]}})
+                    if isinstance(result, (bytes, bytearray)):
+                        uwsgi.websocket_send(result)
+                    else:
+                        uwsgi.websocket_send(
+                            json.dumps(result, default=json_dumps_handler)
+                            if isinstance(result, (list, dict)) else str(result)
+                        )
+                    self.tick(app=app, request=ws_request, user=user, host=host)
+        finally:
+            self.close(app=app, request=request, user=user, host=host)
 
 class Request(object):
     class RequiredArgumentIsMissing(Exception):
@@ -362,7 +412,7 @@ class RequestPipe(metaclass=ABCMeta):
             elif request.type() != request.Types.STATIC:
                 result = app.ajax_output_converter(result)
         except Exception as err:
-            if type(err) is bottle.HTTPResponse:
+            if isinstance(err, bottle.HTTPResponse):
                 raise err
             else:
                 app.log(err)
