@@ -14,12 +14,14 @@ bottle.BaseRequest.MEMFILE_MAX = 16 * 1024 * 1024
 
 class ControllerMethodResponseWithTemplate(object):
     """ Класс для оформления результатов работы декоратора template """
+
     def __init__(self, data, template_name):
         self.data = data
         self.template = template_name
 
     def __str__(self):
-        return json.dumps(self.data, default=json_dumps_handler) if isinstance(self.data, (list, dict)) else str(self.data)
+        return json.dumps(self.data, default=json_dumps_handler) if isinstance(self.data, (list, dict)) else str(
+            self.data)
 
 
 class Profiler(object):
@@ -100,7 +102,8 @@ class Application(bottle.Bottle):
                 return response
 
             try:
-                post_json = json.loads(post_decoded.get("json", get_decoded.get("json", "{}")), object_hook=json_loads_handler)
+                post_json = json.loads(post_decoded.get("json", get_decoded.get("json", "{}")),
+                                       object_hook=json_loads_handler)
             except:
                 post_json = {}
 
@@ -130,21 +133,32 @@ class Application(bottle.Bottle):
                 self.performance_report(user, request, result, p.get_amount())
                 if isinstance(result, (bytes, bytearray)) or (type(result) is bottle.HTTPResponse):
                     return result
-                return json.dumps(result, default=json_dumps_handler) if isinstance(result, (list, dict)) else str(result)
+                return json.dumps(result, default=json_dumps_handler) if isinstance(result, (list, dict)) else str(
+                    result)
 
         if path != '/':
             path = path.rstrip("/")
 
         super().route(path, ["GET", "POST"], wrapper)
 
-    def route_static(self, root):
+    def route_static(self, root, **kwargs):
         """
         Роутинг статики
         :param root: директория с статикой
         """
+
         class StaticController(Controller):
             default_action = 'static'
-            def static(self, request, **kwargs): return bottle.static_file(request.get('path'), root)
+
+            def static(self, request, **kwargs):
+                search = kwargs.get('search', None)
+                replace = kwargs.get('replace', None)
+                path = request.get('path')
+                if search is not None:
+                    r = re.compile(search)
+                    path = r.sub(replace, path)
+                return bottle.static_file(path, root)
+
         self.route("/<path:re:.*\..*>", StaticController)
 
     @staticmethod
@@ -162,7 +176,6 @@ class Application(bottle.Bottle):
 
 
 class Controller(metaclass=ABCMeta):
-
     error_template = "error_template"
     default_action = "not_implemented"
 
@@ -203,6 +216,7 @@ class Controller(metaclass=ABCMeta):
 
 class ProxyController(Controller, metaclass=ABCMeta):
     """ Проксирующий контроллер """
+
     def setup(self, app, request, user, host):
         proxy_controller = self.factory_method(app, request, user, host)
         while issubclass(proxy_controller, ProxyController):
@@ -245,6 +259,7 @@ class WebSocketController(Controller):
         # noinspection PyUnresolvedReferences
         import uwsgi
         import json
+
         uwsgi.websocket_handshake()
 
         self.open(app=app, request=request, user=user, host=host)
@@ -273,6 +288,7 @@ class WebSocketController(Controller):
                     self.tick(app=app, request=ws_request, user=user, host=host)
         finally:
             self.close(app=app, request=request, user=user, host=host)
+
 
 class Request(object):
     class RequiredArgumentIsMissing(Exception):
@@ -429,6 +445,7 @@ class JsonRpcRequestPipe(RequestPipe):
     """
     Реализация обработки JSON RPC запроса
     """
+
     def process(self, controller: Controller, app: Application, request, user, host):
         def wrapper(method, params):
             if isinstance(params, dict):
@@ -538,6 +555,7 @@ def template(template_name, if_true=None, if_exc=None):
     некоторых (определенных при декорировании) типов исключений
 
     """
+
     def decorator(func):
         def wrapped(*args, **kwargs):
             try:
@@ -576,7 +594,9 @@ def template(template_name, if_true=None, if_exc=None):
                     )
                 # В противном случае продолжаем поднимать исключение вверх по стеку
                 raise err
+
         return wrapped
+
     return decorator
 
 
