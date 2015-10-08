@@ -151,12 +151,11 @@ class Application(bottle.Bottle):
             default_action = 'static'
 
             def static(self, request, **kwargs):
-                search = kwargs.get('search', None)
-                replace = kwargs.get('replace', None)
+                search = r'^(.*)\.(v[0-9]+)?\.(css|js)$'
+                replace = r'\1.\3'
                 path = request.get('path')
-                if search is not None:
-                    r = re.compile(search)
-                    path = r.sub(replace, path)
+                r = re.compile(search)
+                path = r.sub(replace, path)
                 return bottle.static_file(path, root)
 
         self.route("/<path:re:.*\..*>", StaticController)
