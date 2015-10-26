@@ -254,6 +254,10 @@ class WebSocketController(Controller):
     def tick(self, app, request, user, host):
         """ Получение сообщения с сокета """
 
+    def heartbeat(self, *args, **kwargs):
+        """ Ничего не делает. Нужен чтобы прошёл цикл внутри self.connect() """
+        return {}
+
     def connect(self, app, request, user, host):
         # noinspection PyUnresolvedReferences
         import uwsgi
