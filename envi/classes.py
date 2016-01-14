@@ -158,7 +158,7 @@ class Application(bottle.Bottle):
                 filename = r.sub(replace, filename)
                 return bottle.static_file(filename, root)
 
-        self.route("/{path}/<filename>".format(path=route_path.strip("/")), StaticController)
+        self.route("/{path}/<filename:path>".format(path=route_path.strip("/")), StaticController)
 
     @staticmethod
     def redirect(path, code=None):
