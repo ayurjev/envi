@@ -141,7 +141,7 @@ class Application(bottle.Bottle):
 
         super().route(path, ["GET", "POST"], wrapper)
 
-    def route_static(self, root, **kwargs):
+    def route_static(self, route_path, root):
         """
         Роутинг статики
         :param root: директория с статикой
@@ -151,14 +151,14 @@ class Application(bottle.Bottle):
             default_action = 'static'
 
             def static(self, request, **kwargs):
-                search = r'^(.*)\.(v[0-9]+)?\.(css|js)$'
+                filename = request.get("filename")
+                search = r'^(.*)\.(v[0-9]+)?\.(.*)$'
                 replace = r'\1.\3'
-                path = request.get('path')
                 r = re.compile(search)
-                path = r.sub(replace, path)
-                return bottle.static_file(path, root)
+                filename = r.sub(replace, filename)
+                return bottle.static_file(filename, root)
 
-        self.route("/<path:re:.*\..*>", StaticController)
+        self.route("/{path}/<filename>".format(path=route_path.strip("/")), StaticController)
 
     @staticmethod
     def redirect(path, code=None):
