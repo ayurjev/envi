@@ -650,3 +650,45 @@ def json_loads_handler(data):
             except Exception as err:
                 raise err
     return data
+
+
+class UnexpectedResultFromMicroService(Exception):
+    pass
+
+
+def microservice(url: str, data: dict, target_key: str=None):
+    """ Функция для работы с микросервисами
+    :param url: URL микросервиса
+    :param data: Данные для передачи в микросервис
+    :param target_key: Ключ, который необходимо вернуть из ответа микросервиса
+    :return:
+    """
+    import json
+    import requests
+    # noinspection PyBroadException
+    try:
+        r = requests.post(url, json=data)
+    except requests.ConnectionError:
+        raise UnexpectedResultFromMicroService("Сервис временно недоступен")
+    except Exception as e:
+        print(e)
+        raise UnexpectedResultFromMicroService("Не удалось выполнить запрос")
+
+    if r.status_code == 200:
+        try:
+            result = json.loads(r.text)
+        except:
+            raise UnexpectedResultFromMicroService("Не удалось выполнить запрос")
+
+        if isinstance(result, dict) and result.get("error"):
+            raise UnexpectedResultFromMicroService("%s" % (result["error"].get("message")))
+
+        if isinstance(result, dict) and target_key:
+            if result.get(target_key) is not None:
+                return result.get(target_key)
+            else:
+                raise UnexpectedResultFromMicroService("В ответе не найден ожидаемый ключ")
+        else:
+            return result
+    else:
+        raise UnexpectedResultFromMicroService("Не удалось выполнить запрос")

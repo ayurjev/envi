@@ -1,0 +1,7 @@
+envi/__init__.py
+envi/classes.py
+envi.egg-info/PKG-INFO
+envi.egg-info/SOURCES.txt
+envi.egg-info/dependency_links.txt
+envi.egg-info/requires.txt
+envi.egg-info/top_level.txt

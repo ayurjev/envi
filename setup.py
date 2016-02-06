@@ -26,6 +26,6 @@ setup(
     author_email='',
     description='wrapper for bottle',
     install_requires=[
-        'bottle',
+        'bottle', 'requests',
     ]
 )
