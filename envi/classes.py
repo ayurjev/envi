@@ -652,8 +652,39 @@ def json_loads_handler(data):
     return data
 
 
+def response_format(func):
+    """ Декоратор для обработки любых исключений возникающих при работе сервиса
+    :param func:
+    """
+    def wrapper(*args, **kwargs):
+        """ wrapper
+        :param args:
+        :param kwargs:
+        """
+        try:
+            return json.dumps(func(*args, **kwargs), default=json_dumps_handler)
+        except BaseServiceException as e:
+            return json.dumps({"error": {"code": e.code, "message": str(e)}}, default=json_dumps_handler)
+        except Exception as e:
+            return json.dumps({"error": {"code": 0, "message": str(e)}}, default=json_dumps_handler)
+    return wrapper
+
+
 class UnexpectedResultFromMicroService(Exception):
     pass
+
+
+class BaseServiceException(Exception):
+    """ Базовый класс исключений """
+    msg = "Неизвестная ошибка"
+
+    def __init__(self, msg=None):
+        self.msg = msg if msg else self.msg
+
+    def __str__(self):
+        return self.msg
+
+    code = 0
 
 
 def microservice(url: str, data: dict, target_key: str=None):
