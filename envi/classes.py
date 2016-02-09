@@ -100,6 +100,10 @@ class Application(bottle.Bottle):
                 response = self.ajax_output_converter(Exception("Invalid HTTP request encoding. Must be 'ISO-8859-1'."))
                 self.log(err)
                 return response
+            except json.JSONDecodeError as err:
+                response = self.ajax_output_converter(Exception("Invalid JSON"))
+                self.log(err)
+                return response
 
             try:
                 post_json = json.loads(post_decoded.get("json", get_decoded.get("json", "{}")),
