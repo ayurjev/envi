@@ -101,9 +101,7 @@ class Application(bottle.Bottle):
                 self.log(err)
                 return response
             except json.JSONDecodeError as err:
-                response = self.ajax_output_converter(Exception("Invalid JSON"))
-                self.log(err)
-                return response
+                return dict(bottle.request.POST.decode())
 
             try:
                 post_json = json.loads(post_decoded.get("json", get_decoded.get("json", "{}")),
