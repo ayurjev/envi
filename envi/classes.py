@@ -95,13 +95,14 @@ class Application(bottle.Bottle):
         def wrapper(*args, **kwargs):
             try:
                 get_decoded = dict(bottle.request.GET.decode())
-                post_decoded = bottle.request.json or dict(bottle.request.POST.decode())
+                try:
+                    post_decoded = bottle.request.json or dict(bottle.request.POST.decode())
+                except Exception:
+                    post_decoded = dict(bottle.request.POST.decode())
             except UnicodeDecodeError as err:
                 response = self.ajax_output_converter(Exception("Invalid HTTP request encoding. Must be 'ISO-8859-1'."))
                 self.log(err)
                 return response
-            except json.JSONDecodeError as err:
-                return dict(bottle.request.POST.decode())
 
             try:
                 post_json = json.loads(post_decoded.get("json", get_decoded.get("json", "{}")),
