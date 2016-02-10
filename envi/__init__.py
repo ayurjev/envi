@@ -4,4 +4,4 @@ from envi.classes import Application, SuitApplication, Controller, ProxyControll
     RequestPipe, JsonRpcRequestPipe,\
     Request, Response,\
     template, ControllerMethodResponseWithTemplate, \
-    microservice, json_dumps_handler, json_loads_handler, response_format
+    microservice, json_dumps_handler, json_loads_handler, response_format, BaseServiceException
