@@ -244,6 +244,31 @@ class Controller(metaclass=ABCMeta):
         return response
 
 
+class JsonController(Controller):
+    def process(self, app: Application, request, user, host):
+        try:
+            domain_data = self.setup(app=app, request=request, user=user, host=host)
+        except Exception as err:
+            return self.apply_to_each_response(
+                response=err,
+                app=app, request=request, user=user, host=host)
+
+        error_response = lambda error_data: self.apply_to_each_response(
+            response=error_data,
+            app=app, request=request, user=user, host=host, **domain_data)
+
+        request.set("error_response", error_response)
+
+        try:
+            cb = self.__getattribute__(request.get("action", self.__class__.default_action))
+        except AttributeError:
+            raise NotImplementedError()
+
+        return self.apply_to_each_response(
+            response=cb(app=app, request=request, user=user, host=host, **domain_data),
+            app=app, request=request, user=user, host=host, **domain_data)
+
+
 class ProxyController(Controller, metaclass=ABCMeta):
     """ Проксирующий контроллер """
 
