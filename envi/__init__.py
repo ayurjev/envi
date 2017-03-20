@@ -1,6 +1,7 @@
 __version__ = '0.2'
 
-from envi.classes import Application, SuitApplication, Controller, ProxyController, WebSocketController, \
+from envi.classes import Application, SuitApplication, Controller, ProxyController, \
+    WebSocketController, WebSocketControllerNb, \
     RequestPipe, JsonRpcRequestPipe,\
     Request, Response,\
     template, ControllerMethodResponseWithTemplate, \

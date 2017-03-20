@@ -1,6 +1,8 @@
 import re
 import json
+import uwsgi
 import time as profiler_time
+from time import sleep
 import traceback
 from io import BytesIO
 import bottle
@@ -290,12 +292,7 @@ class WebSocketController(Controller):
         return {}
 
     def connect(self, app, request, user, host):
-        # noinspection PyUnresolvedReferences
-        import uwsgi
-        import json
-
         uwsgi.websocket_handshake()
-
         self.open(app=app, request=request, user=user, host=host)
         try:
             while True:
@@ -304,24 +301,65 @@ class WebSocketController(Controller):
                 except OSError:
                     raise SystemExit()
 
-                msg = msg.decode()
-                msg = json.loads(msg)
-                if "action" in msg:
-                    ws_request = Request(msg, environ=request.environ)
-                    pipe = RequestPipe()
-                    result = pipe.process(self, app, ws_request, user, host)
-                    if isinstance(result, dict):
-                        result.update({"ws": {"event": msg["action"]}})
-                    if isinstance(result, (bytes, bytearray)):
-                        uwsgi.websocket_send(result)
-                    else:
-                        uwsgi.websocket_send(
-                            json.dumps(result, default=json_dumps_handler)
-                            if isinstance(result, (list, dict)) else str(result)
-                        )
-                    self.tick(app=app, request=ws_request, user=user, host=host)
+                if msg:
+                    msg = msg.decode()
+                    try:
+                        msg = json.loads(msg, object_hook=json_loads_handler)
+                    except ValueError:
+                        msg = None
+
+                    if msg:
+                        self.process_request_from_browser(app, request, user, host, msg)
         finally:
             self.close(app=app, request=request, user=user, host=host)
+
+    def process_request_from_browser(self, app, request, user, host, msg):
+        if "action" in msg:
+            ws_request = Request(msg, environ=request.environ)
+            pipe = RequestPipe()
+            result = pipe.process(self, app, ws_request, user, host)
+            if isinstance(result, dict):
+                result.update({"ws": {"event": msg["action"]}})
+            if isinstance(result, (bytes, bytearray)):
+                uwsgi.websocket_send(result)
+            else:
+                uwsgi.websocket_send(
+                    json.dumps(result, default=json_dumps_handler)
+                    if isinstance(result, (list, dict)) else str(result)
+                )
+            self.tick(app=app, request=ws_request, user=user, host=host)
+
+
+class WebSocketControllerNb(WebSocketController):
+    """ Non-blocking версия для WS-контроллера, периодически заглядывает в messages и отправляет их в сокет """
+    def connect(self, app, request, user, host):
+        uwsgi.websocket_handshake()
+        self.open(app=app, request=request, user=user, host=host)
+        try:
+            while True:
+                try:
+                    msg = uwsgi.websocket_recv_nb()
+                    if msg:
+                        msg = msg.decode()
+                        try:
+                            msg = json.loads(msg, object_hook=json_loads_handler)
+                        except ValueError:
+                            msg = None
+
+                        if msg:
+                            self.process_request_from_browser(app, request, user, host, msg)
+                    else:
+                        for msg in self.messages:
+                            uwsgi.websocket_send(json.dumps(msg, default=json_dumps_handler))
+                    sleep(0.1)
+                except OSError:
+                    raise SystemExit()
+        finally:
+            self.close(app=app, request=request, user=user, host=host)
+
+    @property
+    def messages(self):
+        return []
 
 
 class Request(object):
