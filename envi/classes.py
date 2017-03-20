@@ -313,7 +313,7 @@ class WebSocketController(Controller):
         finally:
             self.close(app=app, request=request, user=user, host=host)
 
-    def process_request_from_browser(self, app, request, user, host, msg):
+    def process_request_from_browser(self, app, request, user, host, msg, uwsgi):
         if "action" in msg:
             ws_request = Request(msg, environ=request.environ)
             pipe = RequestPipe()
@@ -348,7 +348,7 @@ class WebSocketControllerNb(WebSocketController):
                             msg = None
 
                         if msg:
-                            self.process_request_from_browser(app, request, user, host, msg)
+                            self.process_request_from_browser(app, request, user, host, msg, uwsgi)
                     else:
                         for msg in self.messages:
                             uwsgi.websocket_send(json.dumps(msg, default=json_dumps_handler))
