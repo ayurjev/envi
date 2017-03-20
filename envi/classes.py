@@ -1,6 +1,5 @@
 import re
 import json
-import uwsgi
 import time as profiler_time
 from time import sleep
 import traceback
@@ -292,6 +291,7 @@ class WebSocketController(Controller):
         return {}
 
     def connect(self, app, request, user, host):
+        import uwsgi
         uwsgi.websocket_handshake()
         self.open(app=app, request=request, user=user, host=host)
         try:
@@ -333,6 +333,7 @@ class WebSocketController(Controller):
 class WebSocketControllerNb(WebSocketController):
     """ Non-blocking версия для WS-контроллера, периодически заглядывает в messages и отправляет их в сокет """
     def connect(self, app, request, user, host):
+        import uwsgi
         uwsgi.websocket_handshake()
         self.open(app=app, request=request, user=user, host=host)
         try:
