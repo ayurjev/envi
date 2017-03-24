@@ -67,10 +67,11 @@ class Application(bottle.Bottle):
         Здесь можно настроить формат положительных и отрицательных результатов ajax-запросов
         :param result: Экземпляр исключения (Exception) или Словарь с данными (dict)
         """
+        if isinstance(result, BaseServiceException):
+            return {"error": {"code": result.code, "message": result.message}}
         if isinstance(result, Exception):
-            return {"error": {"type": str(type(result)), "message": str(result)}}
-        else:
-            return result
+            return {"error": {"code": 0, "type": str(type(result)), "message": str(result)}}
+        return result
 
     # noinspection PyMethodMayBeStatic
     def static_output_converter(self, result: ControllerMethodResponseWithTemplate) -> str:
@@ -712,24 +713,26 @@ def response_format(func):
     return wrapper
 
 
-class UnexpectedResultFromMicroService(Exception):
+class BaseServiceException(Exception):
+    """ Базовый класс исключений """
+    code = 0
+    message = "Неизвестная ошибка"
+
+    def __init__(self, message=None, code=None):
+        if message:
+            self.message = message
+        if code:
+            self.code = code
+
+    def __str__(self):
+        return self.message
+
+
+class UnexpectedResultFromMicroService(BaseServiceException):
     pass
 
 
-class BaseServiceException(Exception):
-    """ Базовый класс исключений """
-    msg = "Неизвестная ошибка"
-
-    def __init__(self, msg=None):
-        self.msg = msg if msg else self.msg
-
-    def __str__(self):
-        return self.msg
-
-    code = 0
-
-
-def microservice(url: str, data: dict, target_key: str=None):
+def microservice(url: str, data: dict, target_key: str=None, headers=None):
     """ Функция для работы с микросервисами
     :param url: URL микросервиса
     :param data: Данные для передачи в микросервис
@@ -738,14 +741,11 @@ def microservice(url: str, data: dict, target_key: str=None):
     """
     import json
     import requests
-    # noinspection PyBroadException
+
     try:
-        r = requests.post(url, json=data)
+        r = requests.post(url, json=data, headers=headers)
     except requests.ConnectionError:
         raise UnexpectedResultFromMicroService("Сервис временно недоступен")
-    except Exception as e:
-        print(e)
-        raise UnexpectedResultFromMicroService("Не удалось выполнить запрос")
 
     if r.status_code == 200:
         try:
