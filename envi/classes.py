@@ -766,6 +766,7 @@ def microservice(url: str, data: dict, target_key: str=None, headers=None):
                     result = result.get(target_key)
                 else:
                     raise UnexpectedResultFromMicroService("В ответе не найден ожидаемый ключ: %s" % target_key)
+            return result
         else:
             return result
     else:
