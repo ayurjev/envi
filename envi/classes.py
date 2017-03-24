@@ -78,7 +78,7 @@ class Application(bottle.Bottle):
         Переопределить для подключения кастомной шаблонизации
         :param result: Ответ в формате ControllerMethodResponseWithTemplate
         """
-        return "%s + %s" % (result.template, json.dumps(result.data, default=json_dumps_handler))
+        return json.dumps(result.data, default=json_dumps_handler)
 
     @staticmethod
     def _host():
