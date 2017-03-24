@@ -754,7 +754,7 @@ def microservice(url: str, data: dict, target_key: str=None, headers=None):
             raise UnexpectedResultFromMicroService("Не удалось выполнить запрос")
 
         if isinstance(result, dict) and result.get("error"):
-            raise UnexpectedResultFromMicroService("%s" % (result["error"].get("message")))
+            raise UnexpectedResultFromMicroService(result["error"].get("message"), result["error"].get("code"))
 
         if isinstance(result, dict) and target_key:
             if result.get(target_key) is not None:
