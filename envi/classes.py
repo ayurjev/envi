@@ -757,10 +757,15 @@ def microservice(url: str, data: dict, target_key: str=None, headers=None):
             raise UnexpectedResultFromMicroService(result["error"].get("message"), result["error"].get("code"))
 
         if isinstance(result, dict) and target_key:
-            if result.get(target_key) is not None:
-                return result.get(target_key)
+            if target_key.find(".") > -1:
+                target_keys = target_key.split(".")
             else:
-                raise UnexpectedResultFromMicroService("В ответе не найден ожидаемый ключ")
+                target_keys = [target_key]
+            for target_key in target_keys:
+                if result.get(target_key) is not None:
+                    result = result.get(target_key)
+                else:
+                    raise UnexpectedResultFromMicroService("В ответе не найден ожидаемый ключ: %s" % target_key)
         else:
             return result
     else:
