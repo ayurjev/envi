@@ -705,7 +705,7 @@ def response_format(func):
         :param kwargs:
         """
         try:
-            return {"result": json.dumps(func(*args, **kwargs), default=json_dumps_handler)}
+            return json.dumps({"result": func(*args, **kwargs)}, default=json_dumps_handler)
         except BaseServiceException as e:
             return json.dumps({"error": {"code": e.code, "message": str(e)}}, default=json_dumps_handler)
         except Exception as e:
