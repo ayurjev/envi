@@ -709,6 +709,8 @@ def response_format(func):
         except BaseServiceException as e:
             return json.dumps({"error": {"code": e.code, "message": str(e)}}, default=json_dumps_handler)
         except Exception as e:
+            import traceback
+            print(traceback.format_exc())
             return json.dumps({"error": {"code": 0, "message": str(e)}}, default=json_dumps_handler)
     return wrapper
 
