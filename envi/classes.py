@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import time as profiler_time
@@ -93,6 +94,13 @@ class Application(bottle.Bottle):
     # noinspection PyMethodOverriding
     def route(self, path, controller, action=None):
         app = self
+        if os.environ.get("PRINT_INTRO", None):
+            names = []
+            cc = controller().__class__
+            for name in cc.__dict__:
+                if classmethod is type(cc.__dict__[name]):
+                    names.append(name)
+            print("INTRO", cc.__name__, ",".join(sorted(names)), flush=True)
 
         def wrapper(*args, **kwargs):
             try:
